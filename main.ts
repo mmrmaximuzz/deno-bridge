@@ -2,8 +2,15 @@ import { serveDir } from "@std/http/file-server";
 import { ALL_SIDES, Side } from "./game/common.ts";
 
 import settings from "./settings.json" with { type: "json" };
+import { createEngine, Engine } from "./engine.ts";
 
 type Tokens = Record<Side, string>;
+type App = {
+    engine: Engine;
+    accessToken: string;
+    playerTokens: Tokens;
+    hostname: string;
+};
 
 function verifyTokens(
     match: URLPatternResult | null,
@@ -43,12 +50,12 @@ const FILE_ROUTE = new URLPattern({
 });
 
 function handleGameRoute(req: Request, player: Side, hostname: string): Response {
-    if (req.headers.get("upgrade") != "websocket") {
-        return new Response(null, { status: 426 });
-    }
-
     if (req.headers.get("origin") != hostname) {
         return new Response(null, { status: 400 });
+    }
+
+    if (req.headers.get("upgrade") != "websocket") {
+        return new Response(null, { status: 426 });
     }
 
     const { socket, response } = Deno.upgradeWebSocket(req);
@@ -71,18 +78,15 @@ function handleFileRoute(req: Request, prefix: string): Promise<Response> {
     });
 }
 
-function handler(
-    req: Request,
-    opts: { accessToken: string; playerTokens: Tokens; hostname: string },
-): Response | Promise<Response> {
+function handler(req: Request, app: App): Response | Promise<Response> {
     const accessMatch = ACCESS_ROUTE.exec(req.url);
-    const client = verifyTokens(accessMatch, opts.accessToken, opts.playerTokens);
+    const client = verifyTokens(accessMatch, app.accessToken, app.playerTokens);
     if (!client) {
         return new Response("400 Bad Request", { status: 400 });
     }
 
     if (GAME_ROUTE.exec(req.url)) {
-        return handleGameRoute(req, client.player, opts.hostname);
+        return handleGameRoute(req, client.player, app.hostname);
     }
     if (FILE_ROUTE.exec(req.url)) {
         return handleFileRoute(req, client.prefix);
@@ -110,14 +114,16 @@ function main() {
         console.log(`${side} - ${url}`);
     }
 
+    const app = {
+        engine: createEngine(),
+        accessToken,
+        playerTokens,
+        hostname: `http://${settings.hostname}:${settings.port}`,
+    };
+
     Deno.serve(
         { hostname: settings.hostname, port: settings.port },
-        (req) =>
-            handler(req, {
-                accessToken,
-                playerTokens,
-                hostname: `http://${settings.hostname}:${settings.port}`,
-            }),
+        (req) => handler(req, app),
     );
 }
 
