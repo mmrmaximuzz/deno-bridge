@@ -3,10 +3,12 @@ import { ALL_SIDES, Side } from "./game/common.ts";
 
 import settings from "./settings.json" with { type: "json" };
 import { createEngine, Engine } from "./engine.ts";
+import { ConnectionManager, createConnectionManager } from "./connection.ts";
 
 type Tokens = Record<Side, string>;
 type App = {
     engine: Engine;
+    connManager: ConnectionManager;
     accessToken: string;
     playerTokens: Tokens;
     hostname: string;
@@ -49,8 +51,8 @@ const FILE_ROUTE = new URLPattern({
     pathname: "/:access/:player/static/*",
 });
 
-function handleGameRoute(req: Request, player: Side, hostname: string): Response {
-    if (req.headers.get("origin") != hostname) {
+function handleGameRoute(req: Request, player: Side, app: App): Response {
+    if (req.headers.get("origin") != app.hostname) {
         return new Response(null, { status: 400 });
     }
 
@@ -59,15 +61,7 @@ function handleGameRoute(req: Request, player: Side, hostname: string): Response
     }
 
     const { socket, response } = Deno.upgradeWebSocket(req);
-    socket.addEventListener("open", () => {
-        console.log("a client connected!");
-    });
-
-    socket.addEventListener("message", (event) => {
-        if (event.data === "ping") {
-            socket.send("pong");
-        }
-    });
+    app.connManager.register(player, socket);
     return response;
 }
 
@@ -86,7 +80,7 @@ function handler(req: Request, app: App): Response | Promise<Response> {
     }
 
     if (GAME_ROUTE.exec(req.url)) {
-        return handleGameRoute(req, client.player, app.hostname);
+        return handleGameRoute(req, client.player, app);
     }
     if (FILE_ROUTE.exec(req.url)) {
         return handleFileRoute(req, client.prefix);
@@ -114,8 +108,12 @@ function main() {
         console.log(`${side} - ${url}`);
     }
 
+    const engine = createEngine();
+    const connManager = createConnectionManager(engine);
+
     const app = {
-        engine: createEngine(),
+        engine,
+        connManager,
         accessToken,
         playerTokens,
         hostname: `http://${settings.hostname}:${settings.port}`,

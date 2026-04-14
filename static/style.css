@@ -1,0 +1,26 @@
+#messages {
+    height: 125px;
+    font-size: x-small;
+    font-family: monospace;
+    overflow-y: scroll;
+}
+
+#messages .error {
+    color: red;
+    font-style: italic;
+}
+
+#messages .invalid {
+    color: gray;
+    font-style: italic;
+}
+
+#messages .chat {
+    color: black;
+    font-style: normal;
+}
+
+#auction {
+    font-family: monospace;
+    text-align: center;
+}

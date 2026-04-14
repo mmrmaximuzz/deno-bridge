@@ -13,6 +13,7 @@
         "lineWidth": 100
     },
     "compilerOptions": {
-        "checkJs": true
+        "checkJs": true,
+        "lib": ["dom", "deno.ns"]
     }
 }

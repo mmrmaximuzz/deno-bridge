@@ -2,9 +2,98 @@
 <html>
     <head>
         <title>Deno Bridge</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta charset="utf-8">
         <script src="main.js"></script>
+        <link rel="stylesheet" href="style.css">
     </head>
     <body>
-        There will be the game table.
+        <div id="auction">
+            <table width="150em" style="table-layout: fixed">
+                <tr>
+                    <th></th>
+                    <th style="color: green">♣</th>
+                    <th style="color: orange">♦</th>
+                    <th style="color: red">♥</th>
+                    <th style="color: blue">♠</th>
+                    <th style="color: black">NT</th>
+                </tr>
+                <tr>
+                    <td>1</td>
+                    <td id="bid-1-c" class="bid">*</td>
+                    <td id="bid-1-d" class="bid">*</td>
+                    <td id="bid-1-h" class="bid">*</td>
+                    <td id="bid-1-s" class="bid">*</td>
+                    <td id="bid-1-n" class="bid">*</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td id="bid-2-c" class="bid">*</td>
+                    <td id="bid-2-d" class="bid">*</td>
+                    <td id="bid-2-h" class="bid">*</td>
+                    <td id="bid-2-s" class="bid">*</td>
+                    <td id="bid-2-n" class="bid">*</td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td id="bid-3-c" class="bid">*</td>
+                    <td id="bid-3-d" class="bid">*</td>
+                    <td id="bid-3-h" class="bid">*</td>
+                    <td id="bid-3-s" class="bid">*</td>
+                    <td id="bid-3-n" class="bid">*</td>
+                </tr>
+                <tr>
+                    <td>4</td>
+                    <td id="bid-4-c" class="bid">*</td>
+                    <td id="bid-4-d" class="bid">*</td>
+                    <td id="bid-4-h" class="bid">*</td>
+                    <td id="bid-4-s" class="bid">*</td>
+                    <td id="bid-4-n" class="bid">*</td>
+                </tr>
+                <tr>
+                    <td>5</td>
+                    <td id="bid-5-c" class="bid">*</td>
+                    <td id="bid-5-d" class="bid">*</td>
+                    <td id="bid-5-h" class="bid">*</td>
+                    <td id="bid-5-s" class="bid">*</td>
+                    <td id="bid-5-n" class="bid">*</td>
+                </tr>
+                <tr>
+                    <td>6</td>
+                    <td id="bid-6-c" class="bid">*</td>
+                    <td id="bid-6-d" class="bid">*</td>
+                    <td id="bid-6-h" class="bid">*</td>
+                    <td id="bid-6-s" class="bid">*</td>
+                    <td id="bid-6-n" class="bid">*</td>
+                </tr>
+                <tr>
+                    <td>7</td>
+                    <td id="bid-7-c" class="bid">*</td>
+                    <td id="bid-7-d" class="bid">*</td>
+                    <td id="bid-7-h" class="bid">*</td>
+                    <td id="bid-7-s" class="bid">*</td>
+                    <td id="bid-7-n" class="bid">*</td>
+                </tr>
+                <tr>
+                    <td
+                        id="bid-0-pass"
+                        class="bid"
+                        colspan="4"
+                        style="background-color: green; color: white"
+                    >
+                        PASS
+                    </td>
+                    <td id="bid-0-x" class="bid" style="background-color: red; color: white">X</td>
+                    <td id="bid-0-xx" class="bid" style="background-color: blue; color: white">
+                        XX
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div id="messages"></div>
+        <form id="chat-form">
+            <input id="chat-input" />
+        </form>
     </body>
 </html>
