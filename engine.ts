@@ -5,7 +5,7 @@ export type EngineRequest = {
     side: Side;
     data:
         | { kind: "playerConnected" }
-        | { kind: "bidPlay"; bid: Bid }
+        | { kind: "auction"; bid: Bid }
         | { kind: "playerDisconnected" };
 };
 export type EngineResponse =
@@ -87,7 +87,7 @@ class EngineImpl implements Engine {
         }
     }
 
-    handleBidPlay(side: Side, bid: Bid): EngineResponse {
+    handleAuctionPlay(side: Side, bid: Bid): EngineResponse {
         switch (this.state.kind) {
             case "stopped":
             case "connecting":
@@ -123,8 +123,8 @@ class EngineImpl implements Engine {
                 return this.handlePlayerConnection(req.side);
             case "playerDisconnected":
                 return this.handlePlayerDisconnect(req.side);
-            case "bidPlay":
-                return this.handleBidPlay(req.side, req.data.bid);
+            case "auction":
+                return this.handleAuctionPlay(req.side, req.data.bid);
         }
     }
 }

@@ -14,56 +14,120 @@ class ConnectionManagerImpl implements ConnectionManager {
         this.engine = engine;
     }
 
-    handleOpen(side: Side): void {
-        this.engine.handle({ side, data: { kind: "playerConnected" } });
+    createNotification(notification: string): string {
+        return JSON.stringify({ kind: "notify", data: `server: ${notification}` });
     }
 
-    handleChatMessage(side: Side, text: string): void {
-        for (const s of ALL_SIDES) {
-            const conn = this.conns[s];
-            if (conn) {
-                const line = s == side ? `${side}(you): ${text}` : `${side}: ${text}`;
-                conn.send(JSON.stringify({
-                    kind: "chat",
-                    data: line,
-                }));
-            }
+    createError(err: string): string {
+        return JSON.stringify({ kind: "error", data: `server: ${err}` });
+    }
+
+    reportError(err: string, conn?: WebSocket): void {
+        console.error(err);
+        conn?.send(this.createError(err));
+    }
+
+    handleOpen(conn: WebSocket, side: Side): void {
+        const res = this.engine.handle({ side, data: { kind: "playerConnected" } });
+        switch (res.kind) {
+            case "ok":
+                return;
+            case "err":
+                conn.send(this.createNotification(res.err));
+                return;
+            case "stopped":
+            case "deal":
+                break;
         }
     }
 
-    handleMessageInternal(side: Side, obj: { kind?: string; data?: unknown }): void {
+    broadcastChatMessage(side: Side, text: string): void {
+        for (const s of ALL_SIDES) {
+            const line = s == side ? `${side}(you): ${text}` : `${side}: ${text}`;
+            const conn = this.conns[s];
+            conn?.send(JSON.stringify({
+                kind: "chat",
+                data: line,
+            }));
+        }
+    }
+
+    handleEngineAuctionMessage(conn: WebSocket, side: Side, bid: unknown): void {
+        // TODO: implement bid handling
+        console.log(bid);
+
+        switch (bid) {
+            case "pass":
+            case "X":
+            case "XX":
+                break;
+            default:
+                if (typeof bid != "object" || bid == null) {
+                    this.reportError(`${side}: bad bidding object type: ${bid}`, conn);
+                    return;
+                }
+        }
+    }
+
+    handleEngineMessage(
+        conn: WebSocket,
+        side: Side,
+        data: { kind?: unknown; bid?: unknown },
+    ): void {
+        switch (data.kind) {
+            case "auction":
+                this.handleEngineAuctionMessage(conn, side, data.bid);
+                return;
+            default:
+                this.reportError(`${side}: bad engine message kind: ${data.kind}`, conn);
+                return;
+        }
+    }
+
+    handleMessageInternal(
+        conn: WebSocket,
+        side: Side,
+        obj: { kind?: string; data?: unknown },
+    ): void {
         switch (obj.kind) {
             case "chat":
                 if (typeof (obj.data) != "string") {
-                    console.error(`${side}: bad chat data: ${obj.data}`);
+                    this.reportError(`${side}: bad chat data: ${obj.data}`, conn);
                     return;
                 }
-                this.handleChatMessage(side, obj.data);
+                this.broadcastChatMessage(side, obj.data);
+                return;
+            case "engine":
+                if (typeof (obj.data) != "object" || obj.data == null) {
+                    this.reportError(`${side}: bad engine data: ${obj.data}`, conn);
+                    return;
+                }
+                this.handleEngineMessage(conn, side, obj.data);
                 return;
             default:
-                console.error(`${side}: bad message kind: ${obj.kind}`);
+                this.reportError(`${side}: bad message kind: ${obj.kind}`, conn);
                 return;
         }
     }
 
-    handleMessage(side: Side, message: string): void {
+    handleMessage(conn: WebSocket, side: Side, message: string): void {
         let rawObject: unknown = null;
         try {
             rawObject = JSON.parse(message);
         } catch (e) {
             if (e instanceof SyntaxError) {
-                console.error(`${side}: failed to parse JSON from message: ${message}`);
+                this.reportError(`${side}: failed to parse JSON from message: ${message}`);
                 return;
             }
             throw e;
         }
 
         if (typeof rawObject != "object" || rawObject == null) {
-            console.error(`${side}: bad message type: ${message}`);
+            this.reportError(`${side}: bad message type: ${message}`, conn);
             return;
         }
 
-        this.handleMessageInternal(side, rawObject);
+        this.handleMessageInternal(conn, side, rawObject);
     }
 
     handleClose(side: Side): void {
@@ -73,22 +137,29 @@ class ConnectionManagerImpl implements ConnectionManager {
 
     register(side: Side, sock: WebSocket): void {
         if (this.conns[side]) {
-            // socket already registered
-            sock.close();
+            // warn the connected user
+            this.conns[side].send(
+                this.createNotification("someone tried to reuse your invite link"),
+            );
+            // reject the new connection outside of the current event handling
+            setTimeout(() => {
+                sock.send(this.createNotification("this invite link is already used"));
+                sock.close();
+            });
             return;
         }
 
         sock.addEventListener("open", () => {
-            this.handleOpen(side);
+            this.handleOpen(sock, side);
         });
         sock.addEventListener("message", (event) => {
             const data: unknown = event.data;
             if (typeof data != "string") {
-                console.error(`${side}: bad message type from websocket: ${typeof data}`);
+                this.reportError(`${side}: bad message type from websocket: ${typeof data}`, sock);
                 sock.close();
                 return;
             }
-            this.handleMessage(side, data);
+            this.handleMessage(sock, side, data);
         });
         sock.addEventListener("close", () => {
             this.handleClose(side);

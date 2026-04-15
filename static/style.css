@@ -10,7 +10,7 @@
     font-style: italic;
 }
 
-#messages .invalid {
+#messages .notification {
     color: gray;
     font-style: italic;
 }

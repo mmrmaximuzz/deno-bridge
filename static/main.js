@@ -22,8 +22,11 @@ function connectToGameServer() {
  */
 function createContractBidMessage(level, denom) {
     return JSON.stringify({
-        kind: "bidPlay",
-        bid: { level, denom },
+        kind: "engine",
+        data: {
+            kind: "auction",
+            bid: { level, denom },
+        },
     });
 }
 
@@ -32,8 +35,11 @@ function createContractBidMessage(level, denom) {
  */
 function createPassMessage() {
     return JSON.stringify({
-        kind: "bidPlay",
-        bid: "pass",
+        kind: "engine",
+        data: {
+            kind: "auction",
+            bid: "pass",
+        },
     });
 }
 
@@ -42,8 +48,11 @@ function createPassMessage() {
  */
 function createDoubleMessage() {
     return JSON.stringify({
-        kind: "bidPlay",
-        bid: "X",
+        kind: "engine",
+        data: {
+            kind: "auction",
+            bid: "X",
+        },
     });
 }
 
@@ -52,8 +61,11 @@ function createDoubleMessage() {
  */
 function createRedoubleMessage() {
     return JSON.stringify({
-        kind: "bidPlay",
-        bid: "XX",
+        kind: "engine",
+        data: {
+            kind: "auction",
+            bid: "XX",
+        },
     });
 }
 
@@ -110,7 +122,7 @@ function printMessage(message, styleName) {
 
     const time = new Date().toLocaleTimeString();
     const line = document.createElement("div");
-    line.innerText = `${time}| ${message}`;
+    line.innerText = `${time}: ${message}`;
     line.setAttribute("class", styleName);
 
     // append the line and scroll the messages window
@@ -128,8 +140,8 @@ function printErrorMessage(message) {
 /**
  * @param {string} message - error message to print
  */
-function printInvalidActionMessage(message) {
-    printMessage(message, "invalid");
+function printNotificationMessage(message) {
+    printMessage(message, "notification");
 }
 
 /**
@@ -151,12 +163,19 @@ function processMessage(message) {
             }
             printChatMessage(message.data);
             return;
-        case "invalid":
+        case "error":
             if (typeof (message.data) != "string") {
-                printErrorMessage(`invalid engine message from server: ${message.data}`);
+                printErrorMessage(`invalid error message from server: ${message.data}`);
                 return;
             }
-            printInvalidActionMessage(message.data);
+            printErrorMessage(message.data);
+            return;
+        case "notify":
+            if (typeof (message.data) != "string") {
+                printErrorMessage(`invalid notification message from server: ${message.data}`);
+                return;
+            }
+            printNotificationMessage(message.data);
             return;
         default:
             printErrorMessage(`invalid message kind from server: ${message.kind}`);
