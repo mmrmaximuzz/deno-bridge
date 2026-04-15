@@ -28,6 +28,7 @@ export type BiddingResult = "inprogress" | "passout" | FinalContract;
 export interface Bidding {
     handle(bid: Bid): BiddingResult;
     turn(): Side;
+    history(): [Side, Bid[]];
 }
 
 type ActiveContract = {
@@ -42,6 +43,8 @@ type BiddingState = {
     nsDeclares: Record<Denomination, "N" | "S" | null>;
     weDeclares: Record<Denomination, "W" | "E" | null>;
     activeContract: ActiveContract | null;
+    history: Bid[];
+    dealer: Side;
 };
 
 function denominationHigher(dNew: Denomination, dOld: Denomination): boolean {
@@ -67,6 +70,8 @@ function newBiddingState(dealer: Side): BiddingState {
         weDeclares: { C: null, D: null, H: null, S: null, NT: null },
         activeContract: null,
         nrPasses: 0,
+        history: [],
+        dealer,
     };
 }
 
@@ -81,11 +86,16 @@ class BiddingImpl implements Bidding {
         this.state.currentSide = nextSide(this.state.currentSide);
     }
 
-    clearPasses(): void {
-        this.state.nrPasses = 0;
+    acceptBid(bid: Bid): void {
+        this.state.history.push(bid);
+        if (bid != "pass") {
+            // any non-pass bid clears passes
+            this.state.nrPasses = 0;
+        }
+        this.next();
     }
 
-    setContractFromBid(contract: Contract): void {
+    acceptContract(contract: Contract): void {
         const side = this.state.currentSide;
         const denom = contract.denom;
 
@@ -111,6 +121,8 @@ class BiddingImpl implements Bidding {
             side: side,
             status: "free",
         };
+
+        this.acceptBid(contract);
     }
 
     getFinalContract(): FinalContract {
@@ -159,21 +171,22 @@ class BiddingImpl implements Bidding {
             switch (this.state.nrPasses) {
                 case 0:
                     this.state.nrPasses = 1;
-                    this.next();
+                    this.acceptBid(bid);
                     return "inprogress";
                 case 1:
                     this.state.nrPasses = 2;
-                    this.next();
+                    this.acceptBid(bid);
                     return "inprogress";
                 case 2:
                     // if contract bid has been made, then 3 passes stops the bidding
                     if (this.state.activeContract != null) {
+                        this.acceptBid(bid);
                         this.state.finished = true;
                         return this.getFinalContract();
                     }
                     // else give the forth player the right to make its bid
                     this.state.nrPasses = 3;
-                    this.next();
+                    this.acceptBid(bid);
                     return "inprogress";
                 case 3:
                     // sanity check
@@ -182,6 +195,7 @@ class BiddingImpl implements Bidding {
                             "assertion failed: 4 passes with active contract",
                         );
                     }
+                    this.acceptBid(bid);
                     this.state.finished = true;
                     return "passout";
             }
@@ -202,8 +216,7 @@ class BiddingImpl implements Bidding {
             }
 
             this.state.activeContract.status = "X";
-            this.clearPasses();
-            this.next();
+            this.acceptBid(bid);
             return "inprogress";
         }
 
@@ -222,16 +235,13 @@ class BiddingImpl implements Bidding {
             }
 
             this.state.activeContract.status = "XX";
-            this.clearPasses();
-            this.next();
+            this.acceptBid(bid);
             return "inprogress";
         }
 
         // the rest is a contract bid
         if (this.state.activeContract == null) {
-            this.setContractFromBid(bid);
-            this.clearPasses();
-            this.next();
+            this.acceptContract(bid);
             return "inprogress";
         } else {
             // sanity check
@@ -247,15 +257,17 @@ class BiddingImpl implements Bidding {
                 throw new InvalidBid("the contract is not higher than previous");
             }
 
-            this.setContractFromBid(bid);
-            this.clearPasses();
-            this.next();
+            this.acceptContract(bid);
             return "inprogress";
         }
     }
 
     turn(): Side {
         return this.state.currentSide;
+    }
+
+    history(): [Side, Bid[]] {
+        return [this.state.dealer, this.state.history];
     }
 }
 
