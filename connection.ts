@@ -1,6 +1,6 @@
-import { Engine } from "./engine.ts";
+import { Engine, EngineFullState } from "./game/engine.ts";
 import { ALL_SIDES, Side } from "./game/common.ts";
-import { parseBid, parseDenomination, parseLevel } from "./parsing.ts";
+import { parseBid } from "./parsing.ts";
 
 export interface ConnectionManager {
     register(side: Side, sock: WebSocket): void;
@@ -23,23 +23,17 @@ class ConnectionManagerImpl implements ConnectionManager {
         return JSON.stringify({ kind: "error", data: `server: ${err}` });
     }
 
+    createInit(side: Side, state: EngineFullState): string {
+        return JSON.stringify({ side, state });
+    }
+
     reportError(err: string, conn?: WebSocket): void {
         console.error(err);
         conn?.send(this.createError(err));
     }
 
     handleOpen(conn: WebSocket, side: Side): void {
-        const res = this.engine.handle({ side, data: { kind: "playerConnected" } });
-        switch (res.kind) {
-            case "ok":
-                return;
-            case "err":
-                conn.send(this.createNotification(res.err));
-                return;
-            case "stopped":
-            case "deal":
-                break;
-        }
+        this.conns[side] = conn;
     }
 
     broadcastChatMessage(side: Side, text: string): void {
@@ -51,6 +45,10 @@ class ConnectionManagerImpl implements ConnectionManager {
                 data: line,
             }));
         }
+    }
+
+    handleInitMessage(conn: WebSocket, side: Side): void {
+        conn.send(this.createInit(side, this.engine.getFullState()));
     }
 
     handleEngineAuctionMessage(conn: WebSocket, side: Side, data: unknown): void {
@@ -74,11 +72,6 @@ class ConnectionManagerImpl implements ConnectionManager {
             case "err":
                 conn.send(this.createNotification(`engine: ${response.err}`));
                 return;
-            case "stopped":
-                conn.send(this.createError("game has been stopped"));
-                return;
-            case "deal":
-                throw new Error("not implemented");
         }
     }
 
@@ -103,15 +96,15 @@ class ConnectionManagerImpl implements ConnectionManager {
         obj: { kind?: string; data?: unknown },
     ): void {
         switch (obj.kind) {
-            case "init":
-                console.log("INIT IS NOT IMPLEMENTED");
-                return;
             case "chat":
                 if (typeof (obj.data) != "string") {
                     this.reportError(`${side}: bad chat data: ${obj.data}`, conn);
                     return;
                 }
                 this.broadcastChatMessage(side, obj.data);
+                return;
+            case "init":
+                this.handleInitMessage(conn, side);
                 return;
             case "engine":
                 if (typeof (obj.data) != "object" || obj.data == null) {
@@ -147,7 +140,6 @@ class ConnectionManagerImpl implements ConnectionManager {
     }
 
     handleClose(side: Side): void {
-        this.engine.handle({ side, data: { kind: "playerDisconnected" } });
         this.conns[side] = null;
     }
 
@@ -180,8 +172,6 @@ class ConnectionManagerImpl implements ConnectionManager {
         sock.addEventListener("close", () => {
             this.handleClose(side);
         });
-
-        this.conns[side] = sock;
     }
 }
 

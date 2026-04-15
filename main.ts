@@ -2,7 +2,7 @@ import { serveDir } from "@std/http/file-server";
 import { ALL_SIDES, Side } from "./game/common.ts";
 
 import settings from "./settings.json" with { type: "json" };
-import { createEngine, Engine } from "./engine.ts";
+import { createEngine, Engine } from "./game/engine.ts";
 import { ConnectionManager, createConnectionManager } from "./connection.ts";
 
 type Tokens = Record<Side, string>;

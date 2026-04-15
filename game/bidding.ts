@@ -28,7 +28,7 @@ export type BiddingResult = "inprogress" | "passout" | FinalContract;
 export interface Bidding {
     handle(bid: Bid): BiddingResult;
     turn(): Side;
-    history(): [Side, Bid[]];
+    getHistory(): [Side, Bid[]];
 }
 
 type ActiveContract = {
@@ -266,7 +266,7 @@ class BiddingImpl implements Bidding {
         return this.state.currentSide;
     }
 
-    history(): [Side, Bid[]] {
+    getHistory(): [Side, Bid[]] {
         return [this.state.dealer, this.state.history];
     }
 }
