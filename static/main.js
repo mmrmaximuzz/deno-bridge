@@ -18,6 +18,7 @@ function connectToGameServer() {
 /**
  * @param {number} level - contract level
  * @param {string} denom - contract denomination (suit or NT)
+ *
  * @return {string} - JSON representation of the message
  */
 function createContractBidMessage(level, denom) {
@@ -70,7 +71,9 @@ function createRedoubleMessage() {
 }
 
 /**
+ * Create text message for the chat.
  * @param {string} text - text message
+ *
  * @return {string} - JSON representation of the message
  */
 function createTextMessage(text) {
@@ -81,7 +84,17 @@ function createTextMessage(text) {
 }
 
 /**
+ * @return {string} - JSON representation of the message
+ */
+function createInitMessage() {
+    return JSON.stringify({
+        kind: "init",
+    });
+}
+
+/**
  * @param {Element} elem - Bid Element
+ *
  * @param {App} app - application data
  */
 function handleBidClick(elem, app) {
@@ -89,7 +102,8 @@ function handleBidClick(elem, app) {
     const level = Number(items[0]);
     if (level) {
         // normal contract bids
-        const denom = items[1];
+        const rawDenom = items[1];
+        const denom = rawDenom == "n" ? "NT" : rawDenom.toUpperCase();
         app.sock.send(createContractBidMessage(level, denom));
     } else {
         // special bids
@@ -113,6 +127,8 @@ function handleBidClick(elem, app) {
 /**
  * @param {string} message - message to print
  * @param {string} styleName - additional style name for the message
+ *
+ * @return {void}
  */
 function printMessage(message, styleName) {
     const messages = document.getElementById("messages");
@@ -132,6 +148,8 @@ function printMessage(message, styleName) {
 
 /**
  * @param {string} message - error message to print
+ *
+ * @return {void}
  */
 function printErrorMessage(message) {
     printMessage(message, "error");
@@ -139,6 +157,8 @@ function printErrorMessage(message) {
 
 /**
  * @param {string} message - error message to print
+ *
+ * @return {void}
  */
 function printNotificationMessage(message) {
     printMessage(message, "notification");
@@ -146,6 +166,8 @@ function printNotificationMessage(message) {
 
 /**
  * @param {string} message - error message to print
+ *
+ * @return {void}
  */
 function printChatMessage(message) {
     printMessage(message, "chat");
@@ -153,6 +175,8 @@ function printChatMessage(message) {
 
 /**
  * @param {{ kind?: string; data?: unknown }} message - application data
+ *
+ * @return {void}
  */
 function processMessage(message) {
     switch (message.kind) {
@@ -185,6 +209,8 @@ function processMessage(message) {
 
 /**
  * @param {App} app - application data
+ *
+ * @return {void}
  */
 function handleSubmit(app) {
     const input = document.getElementById("chat-input");
@@ -205,6 +231,8 @@ function handleSubmit(app) {
 
 /**
  * @param {MessageEvent} event - application data
+ *
+ * @return {void}
  */
 function handleServerMessage(event) {
     /** @type {unknown} */
@@ -238,6 +266,20 @@ function handleServerMessage(event) {
 
 /**
  * @param {App} app - application data
+ *
+ * @return {void}
+ */
+function handleSocketConnect(app) {
+    // schedule initialization event immediately after handling open
+    setTimeout(() => {
+        app.sock.send(createInitMessage());
+    });
+}
+
+/**
+ * @param {App} app - application data
+ *
+ * @return {void}
  */
 function registerEvents(app) {
     // register UI clicks
@@ -267,6 +309,7 @@ function registerEvents(app) {
 
     // attach websocket hooks
     app.sock.onmessage = handleServerMessage;
+    app.sock.onopen = () => handleSocketConnect(app);
 }
 
 function main() {

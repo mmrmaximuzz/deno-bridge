@@ -1,5 +1,6 @@
 import { Engine } from "./engine.ts";
 import { ALL_SIDES, Side } from "./game/common.ts";
+import { parseBid, parseDenomination, parseLevel } from "./parsing.ts";
 
 export interface ConnectionManager {
     register(side: Side, sock: WebSocket): void;
@@ -52,20 +53,32 @@ class ConnectionManagerImpl implements ConnectionManager {
         }
     }
 
-    handleEngineAuctionMessage(conn: WebSocket, side: Side, bid: unknown): void {
-        // TODO: implement bid handling
-        console.log(bid);
+    handleEngineAuctionMessage(conn: WebSocket, side: Side, data: unknown): void {
+        const bid = parseBid(data);
+        if (!bid) {
+            this.reportError(`failed to parse bid data: ${JSON.stringify(data)}`, conn);
+            return;
+        }
 
-        switch (bid) {
-            case "pass":
-            case "X":
-            case "XX":
+        const response = this.engine.handle({
+            side,
+            data: {
+                kind: "auction",
+                bid,
+            },
+        });
+
+        switch (response.kind) {
+            case "ok":
                 break;
-            default:
-                if (typeof bid != "object" || bid == null) {
-                    this.reportError(`${side}: bad bidding object type: ${bid}`, conn);
-                    return;
-                }
+            case "err":
+                conn.send(this.createNotification(`engine: ${response.err}`));
+                return;
+            case "stopped":
+                conn.send(this.createError("game has been stopped"));
+                return;
+            case "deal":
+                throw new Error("not implemented");
         }
     }
 
@@ -90,6 +103,9 @@ class ConnectionManagerImpl implements ConnectionManager {
         obj: { kind?: string; data?: unknown },
     ): void {
         switch (obj.kind) {
+            case "init":
+                console.log("INIT IS NOT IMPLEMENTED");
+                return;
             case "chat":
                 if (typeof (obj.data) != "string") {
                     this.reportError(`${side}: bad chat data: ${obj.data}`, conn);
