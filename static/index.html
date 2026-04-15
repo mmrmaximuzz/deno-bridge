@@ -8,88 +8,71 @@
         <link rel="stylesheet" href="style.css">
     </head>
     <body>
-        <div id="auction">
-            <table width="150em" style="table-layout: fixed">
-                <tr>
-                    <th></th>
-                    <th style="color: green">♣</th>
-                    <th style="color: orange">♦</th>
-                    <th style="color: red">♥</th>
-                    <th style="color: blue">♠</th>
-                    <th style="color: black">NT</th>
-                </tr>
-                <tr>
-                    <td>1</td>
-                    <td id="bid-1-c" class="bid">*</td>
-                    <td id="bid-1-d" class="bid">*</td>
-                    <td id="bid-1-h" class="bid">*</td>
-                    <td id="bid-1-s" class="bid">*</td>
-                    <td id="bid-1-n" class="bid">*</td>
-                </tr>
-                <tr>
-                    <td>2</td>
-                    <td id="bid-2-c" class="bid">*</td>
-                    <td id="bid-2-d" class="bid">*</td>
-                    <td id="bid-2-h" class="bid">*</td>
-                    <td id="bid-2-s" class="bid">*</td>
-                    <td id="bid-2-n" class="bid">*</td>
-                </tr>
-                <tr>
-                    <td>3</td>
-                    <td id="bid-3-c" class="bid">*</td>
-                    <td id="bid-3-d" class="bid">*</td>
-                    <td id="bid-3-h" class="bid">*</td>
-                    <td id="bid-3-s" class="bid">*</td>
-                    <td id="bid-3-n" class="bid">*</td>
-                </tr>
-                <tr>
-                    <td>4</td>
-                    <td id="bid-4-c" class="bid">*</td>
-                    <td id="bid-4-d" class="bid">*</td>
-                    <td id="bid-4-h" class="bid">*</td>
-                    <td id="bid-4-s" class="bid">*</td>
-                    <td id="bid-4-n" class="bid">*</td>
-                </tr>
-                <tr>
-                    <td>5</td>
-                    <td id="bid-5-c" class="bid">*</td>
-                    <td id="bid-5-d" class="bid">*</td>
-                    <td id="bid-5-h" class="bid">*</td>
-                    <td id="bid-5-s" class="bid">*</td>
-                    <td id="bid-5-n" class="bid">*</td>
-                </tr>
-                <tr>
-                    <td>6</td>
-                    <td id="bid-6-c" class="bid">*</td>
-                    <td id="bid-6-d" class="bid">*</td>
-                    <td id="bid-6-h" class="bid">*</td>
-                    <td id="bid-6-s" class="bid">*</td>
-                    <td id="bid-6-n" class="bid">*</td>
-                </tr>
-                <tr>
-                    <td>7</td>
-                    <td id="bid-7-c" class="bid">*</td>
-                    <td id="bid-7-d" class="bid">*</td>
-                    <td id="bid-7-h" class="bid">*</td>
-                    <td id="bid-7-s" class="bid">*</td>
-                    <td id="bid-7-n" class="bid">*</td>
-                </tr>
-                <tr>
-                    <td
-                        id="bid-0-pass"
-                        class="bid"
-                        colspan="4"
-                        style="background-color: green; color: white"
-                    >
-                        PASS
-                    </td>
-                    <td id="bid-0-x" class="bid" style="background-color: red; color: white">X</td>
-                    <td id="bid-0-xx" class="bid" style="background-color: blue; color: white">
-                        XX
-                    </td>
-                </tr>
-            </table>
-        </div>
+        <table id="auction">
+            <tr>
+                <td id="bid-1-c" class="bid"><span class="suit-c">1♣</span></td>
+                <td id="bid-1-d" class="bid"><span class="suit-d">1♦</span></td>
+                <td id="bid-1-h" class="bid"><span class="suit-h">1♥</span></td>
+                <td id="bid-1-s" class="bid"><span class="suit-s">1♠</span></td>
+                <td id="bid-1-n" class="bid"><span class="suit-n">1NT</span></td>
+            </tr>
+            <tr>
+                <td id="bid-2-c" class="bid"><span class="suit-c">2♣</span></td>
+                <td id="bid-2-d" class="bid"><span class="suit-d">2♦</span></td>
+                <td id="bid-2-h" class="bid"><span class="suit-h">2♥</span></td>
+                <td id="bid-2-s" class="bid"><span class="suit-s">2♠</span></td>
+                <td id="bid-2-n" class="bid"><span class="suit-n">2NT</span></td>
+            </tr>
+            <tr>
+                <td id="bid-3-c" class="bid"><span class="suit-c">3♣</span></td>
+                <td id="bid-3-d" class="bid"><span class="suit-d">3♦</span></td>
+                <td id="bid-3-h" class="bid"><span class="suit-h">3♥</span></td>
+                <td id="bid-3-s" class="bid"><span class="suit-s">3♠</span></td>
+                <td id="bid-3-n" class="bid"><span class="suit-n">3NT</span></td>
+            </tr>
+            <tr>
+                <td id="bid-4-c" class="bid"><span class="suit-c">4♣</span></td>
+                <td id="bid-4-d" class="bid"><span class="suit-d">4♦</span></td>
+                <td id="bid-4-h" class="bid"><span class="suit-h">4♥</span></td>
+                <td id="bid-4-s" class="bid"><span class="suit-s">4♠</span></td>
+                <td id="bid-4-n" class="bid"><span class="suit-n">4NT</span></td>
+            </tr>
+            <tr>
+                <td id="bid-5-c" class="bid"><span class="suit-c">5♣</span></td>
+                <td id="bid-5-d" class="bid"><span class="suit-d">5♦</span></td>
+                <td id="bid-5-h" class="bid"><span class="suit-h">5♥</span></td>
+                <td id="bid-5-s" class="bid"><span class="suit-s">5♠</span></td>
+                <td id="bid-5-n" class="bid"><span class="suit-n">5NT</span></td>
+            </tr>
+            <tr>
+                <td id="bid-6-c" class="bid"><span class="suit-c">6♣</span></td>
+                <td id="bid-6-d" class="bid"><span class="suit-d">6♦</span></td>
+                <td id="bid-6-h" class="bid"><span class="suit-h">6♥</span></td>
+                <td id="bid-6-s" class="bid"><span class="suit-s">6♠</span></td>
+                <td id="bid-6-n" class="bid"><span class="suit-n">6NT</span></td>
+            </tr>
+            <tr>
+                <td id="bid-7-c" class="bid"><span class="suit-c">7♣</span></td>
+                <td id="bid-7-d" class="bid"><span class="suit-d">7♦</span></td>
+                <td id="bid-7-h" class="bid"><span class="suit-h">7♥</span></td>
+                <td id="bid-7-s" class="bid"><span class="suit-s">7♠</span></td>
+                <td id="bid-7-n" class="bid"><span class="suit-n">7NT</span></td>
+            </tr>
+            <tr>
+                <td
+                    id="bid-0-pass"
+                    class="bid"
+                    colspan="3"
+                    style="background-color: green; color: white"
+                >
+                    PASS
+                </td>
+                <td id="bid-0-x" class="bid" style="background-color: red; color: white">X</td>
+                <td id="bid-0-xx" class="bid" style="background-color: blue; color: white">
+                    XX
+                </td>
+            </tr>
+        </table>
 
         <div id="messages"></div>
         <form id="chat-form">

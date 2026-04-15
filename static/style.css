@@ -21,6 +21,29 @@
 }
 
 #auction {
+    width: 15em;
     font-family: monospace;
     text-align: center;
+    border: 1px solid black;
+    border-collapse: collapse;
+}
+
+#auction td {
+    border: 1px solid black;
+}
+
+.suit-c {
+    color: green;
+}
+.suit-d {
+    color: orange;
+}
+.suit-h {
+    color: red;
+}
+.suit-s {
+    color: blue;
+}
+.suit-n {
+    color: black;
 }
