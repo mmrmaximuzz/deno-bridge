@@ -110,7 +110,7 @@ function printMessage(message, styleName) {
 
     const time = new Date().toLocaleTimeString();
     const line = document.createElement("div");
-    line.innerText = `${time}: ${message}`;
+    line.innerText = `${time}| ${message}`;
     line.setAttribute("class", styleName);
 
     // append the line and scroll the messages window

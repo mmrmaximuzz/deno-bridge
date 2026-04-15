@@ -1,5 +1,5 @@
 import { Engine } from "./engine.ts";
-import { Side } from "./game/common.ts";
+import { ALL_SIDES, Side } from "./game/common.ts";
 
 export interface ConnectionManager {
     register(side: Side, sock: WebSocket): void;
@@ -18,8 +18,52 @@ class ConnectionManagerImpl implements ConnectionManager {
         this.engine.handle({ side, data: { kind: "playerConnected" } });
     }
 
+    handleChatMessage(side: Side, text: string): void {
+        for (const s of ALL_SIDES) {
+            const conn = this.conns[s];
+            if (conn) {
+                const line = s == side ? `${side}(you): ${text}` : `${side}: ${text}`;
+                conn.send(JSON.stringify({
+                    kind: "chat",
+                    data: line,
+                }));
+            }
+        }
+    }
+
+    handleMessageInternal(side: Side, obj: { kind?: string; data?: unknown }): void {
+        switch (obj.kind) {
+            case "chat":
+                if (typeof (obj.data) != "string") {
+                    console.error(`${side}: bad chat data: ${obj.data}`);
+                    return;
+                }
+                this.handleChatMessage(side, obj.data);
+                return;
+            default:
+                console.error(`${side}: bad message kind: ${obj.kind}`);
+                return;
+        }
+    }
+
     handleMessage(side: Side, message: string): void {
-        console.log(`${side}: ${message}`);
+        let rawObject: unknown = null;
+        try {
+            rawObject = JSON.parse(message);
+        } catch (e) {
+            if (e instanceof SyntaxError) {
+                console.error(`${side}: failed to parse JSON from message: ${message}`);
+                return;
+            }
+            throw e;
+        }
+
+        if (typeof rawObject != "object" || rawObject == null) {
+            console.error(`${side}: bad message type: ${message}`);
+            return;
+        }
+
+        this.handleMessageInternal(side, rawObject);
     }
 
     handleClose(side: Side): void {
@@ -39,12 +83,12 @@ class ConnectionManagerImpl implements ConnectionManager {
         });
         sock.addEventListener("message", (event) => {
             const data: unknown = event.data;
-            if (typeof data == "string") {
-                this.handleMessage(side, data);
-            } else {
-                // handle error
-                console.log(data);
+            if (typeof data != "string") {
+                console.error(`${side}: bad message type from websocket: ${typeof data}`);
+                sock.close();
+                return;
             }
+            this.handleMessage(side, data);
         });
         sock.addEventListener("close", () => {
             this.handleClose(side);
