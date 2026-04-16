@@ -1,9 +1,49 @@
+.main {
+    display: grid;
+    grid-template-areas:
+        "header header header header"
+        "top-player top-player top-player auction"
+        "left-player table right-player auction"
+        "bottom-player bottom-player bottom-player auction"
+        "chat chat chat chat";
+    gap: 20px;
+}
+
+.table {
+    display: grid;
+    gap: 5px;
+    grid-template-columns: repeat(5, 1fr);
+    border: 1px solid black;
+    background-color: lightgreen;
+    grid-auto-rows: 1fr;
+}
+
+.cardholder {
+    display: flex;
+    font-family: monospace;
+    justify-content: center;
+    align-items: center;
+}
+
+.singlecard {
+    display: flex;
+    font-family: monospace;
+    justify-content: center;
+    align-items: center;
+}
+
+.sidelabel {
+    display: flex;
+    font-family: monospace;
+    justify-content: center;
+    align-items: center;
+}
+
 #messages {
     height: 125px;
     font-size: x-small;
     font-family: monospace;
     overflow-y: scroll;
-    margin-top: 2em;
 }
 
 #messages .error {
@@ -22,13 +62,11 @@
 }
 
 #auction {
-    width: 15%;
+    width: 100%;
     font-family: monospace;
     text-align: center;
     border: 1px solid black;
     border-collapse: collapse;
-    float: left;
-    margin-right: 1em;
     table-layout: fixed;
 }
 
@@ -37,12 +75,11 @@
 }
 
 #auction-history {
-    width: 20%;
+    width: 100%;
     font-family: monospace;
     text-align: center;
     border: 1px solid black;
     border-collapse: collapse;
-    float: none;
     table-layout: fixed;
 }
 
@@ -54,13 +91,13 @@
     color: green;
 }
 .suit-d {
-    color: orange;
+    color: darkorange;
 }
 .suit-h {
     color: red;
 }
 .suit-s {
-    color: blue;
+    color: royalblue;
 }
 .suit-n {
     color: black;

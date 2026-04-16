@@ -18,6 +18,47 @@
  */
 
 /**
+ * @param {string} id
+ * @return {HTMLElement}
+ */
+function assertGetElementById(id) {
+    const elem = document.getElementById(id);
+    if (!elem) {
+        throw new Error(`failed to find html element for id ${id}`);
+    }
+    return elem;
+}
+
+/**
+ * @param {string} name
+ * @return {HTMLCollectionOf<Element>}
+ */
+function assertGetElementsByClassName(name) {
+    const elem = document.getElementsByClassName(name);
+    if (!elem) {
+        throw new Error(`failed to find html element for class ${name}`);
+    }
+    return elem;
+}
+
+/**
+ * @param {Side} side
+ * @return {Side}
+ */
+function nextSide(side) {
+    switch (side) {
+        case "W":
+            return "N";
+        case "N":
+            return "E";
+        case "E":
+            return "S";
+        case "S":
+            return "W";
+    }
+}
+
+/**
  * @param {unknown} raw - input object
  * @return {Side | null}
  */
@@ -170,9 +211,9 @@ function bidPrettyText(bid) {
  * @return {void}
  */
 function auctionHistorySetDealer(dealer) {
-    const history = document.getElementById("auction-history");
-    if (!history || !(history instanceof HTMLTableElement)) {
-        throw new Error("failed to find auction-history element");
+    const history = assertGetElementById("auction-history");
+    if (!(history instanceof HTMLTableElement)) {
+        throw new Error("bad type");
     }
 
     // initialize the first row
@@ -199,7 +240,7 @@ function auctionHistorySetDealer(dealer) {
  * @return {void}
  */
 function auctionHistoryAdd(bid) {
-    const history = document.getElementById("auction-history");
+    const history = assertGetElementById("auction-history");
     if (!history || !(history instanceof HTMLTableElement)) {
         throw new Error("failed to find auction-history element");
     }
@@ -388,11 +429,7 @@ function handleBidClick(elem, app) {
  * @return {void}
  */
 function printMessage(message, styleName) {
-    const messages = document.getElementById("messages");
-    if (!messages) {
-        throw new Error("Fatal: messages element not found");
-    }
-
+    const messages = assertGetElementById("messages");
     const time = new Date().toLocaleTimeString();
     const line = document.createElement("div");
     line.innerText = `${time}: ${message}`;
@@ -465,15 +502,15 @@ function disableInactiveBids(bid) {
 }
 
 /**
- * @param {Side} side
+ * @param {Side} mySide
  * @return {void}
  */
-function drawMySide(side) {
-    const sideElem = document.getElementById("side");
-    if (!sideElem) {
-        throw new Error("AssertionError: failed to find side element");
+function labelPlayerSides(mySide) {
+    let side = mySide;
+    for (const pos of ["bottom", "left", "top", "right"]) {
+        assertGetElementById(`${pos}-side`).innerText = side;
+        side = nextSide(side);
     }
-    sideElem.innerText = side;
 }
 
 /**
@@ -503,7 +540,7 @@ function processInitMessage(app, data) {
         return;
     }
 
-    drawMySide(side);
+    labelPlayerSides(side);
     app.mySide = side;
     app.gen = data.gen;
     // apply pending updates if any
@@ -619,11 +656,7 @@ function processMessage(app, message) {
  * @return {void}
  */
 function handleSubmit(app) {
-    const input = document.getElementById("chat-input");
-    if (!input) {
-        printErrorMessage("AssertionError: failed to find chat input element");
-        return;
-    }
+    const input = assertGetElementById("chat-input");
     if (!(input instanceof HTMLInputElement)) {
         printErrorMessage("AssertionError: bad input element type");
         return;
@@ -692,11 +725,7 @@ function handleSocketConnect(app) {
  * @return {void}
  */
 function mapBidElems(f) {
-    const bidElems = document.getElementsByClassName("bid");
-    if (!bidElems) {
-        printErrorMessage("AssertionError: bid elements not found");
-        return;
-    }
+    const bidElems = assertGetElementsByClassName("bid");
     for (let i = 0; i < bidElems.length; ++i) {
         const elem = bidElems[i];
         // dynamic cast
@@ -721,11 +750,7 @@ function registerEvents(app) {
     });
 
     // register chat input form
-    const form = document.getElementById("chat-form");
-    if (!form) {
-        printErrorMessage("AssertionError: chat form not found");
-        return;
-    }
+    const form = assertGetElementById("chat-form");
     form.onsubmit = () => {
         handleSubmit(app);
         // the form is sent via the websocket, prevent default browser submit
@@ -738,7 +763,6 @@ function registerEvents(app) {
 }
 
 function main() {
-    /** @type {App} */
     const app = {
         sock: connectToGameServer(),
         pending: [],
