@@ -7,9 +7,10 @@
  * @typedef { { level: Level; denom: Denomination } } Contract - contract bid
  * @typedef { "PASS" | "X" | "XX" | Contract } Bid - auction bid
  * @typedef {Bid[]} AuctionHistory - history of bids
- */
-
-/**
+ * @typedef { "C" | "D" | "H" | "S" } Suit - card suit
+ * @typedef { 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 } Rank - card suit
+ * @typedef { [Suit, Rank] } Card - playing card
+ *
  * @typedef {object} App - application data
  * @property {WebSocket} sock - WebSocket connection to the game server
  * @property {[Bid, number][]} pending - pending updates if any
@@ -156,6 +157,87 @@ function parseAuctionHistory(raw) {
 }
 
 /**
+ * @param {unknown} raw
+ * @return {Suit | null}
+ */
+function parseSuit(raw) {
+    switch (raw) {
+        case "C":
+        case "D":
+        case "H":
+        case "S":
+            return raw;
+        default:
+            return null;
+    }
+}
+
+/**
+ * @param {unknown} raw
+ * @return {Rank | null}
+ */
+function parseRank(raw) {
+    switch (raw) {
+        case 0:
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+        case 8:
+        case 9:
+        case 10:
+        case 11:
+        case 12:
+            return raw;
+        default:
+            return null;
+    }
+}
+
+/**
+ * @param {unknown} rawDeal - deal object from server
+ * @return {[Suit, Rank][] | null}
+ */
+function parseDeal(rawDeal) {
+    if (!(rawDeal instanceof Array)) {
+        return null;
+    }
+
+    /** @type [Suit, Rank][] */
+    const result = [];
+    for (const rawItem of rawDeal) {
+        if (!(rawItem instanceof Array) || rawItem.length != 2) {
+            return null;
+        }
+        const [rawSuit, rawRank] = rawItem;
+        const suit = parseSuit(rawSuit);
+        const rank = parseRank(rawRank);
+        if (suit == null || rank == null) {
+            return null;
+        }
+        result.push([suit, rank]);
+    }
+    return result.sort((a, b) => {
+        if (a[0] > b[0]) {
+            return 1;
+        }
+        if (a[0] < b[0]) {
+            return -1;
+        }
+        if (a[1] > b[1]) {
+            return 1;
+        }
+        if (a[1] < b[1]) {
+            return -1;
+        }
+        return 0;
+    }).reverse();
+}
+
+/**
  * @param {Contract} b1 - 1st operand of >=
  * @param {Contract} b2 - 2nd operand of >=
  * @return {boolean}
@@ -178,6 +260,25 @@ function contractGreaterOrEqual(b1, b2) {
 }
 
 /**
+ * @param {Suit} suit - suit to print
+ * @return {[string, string]}
+ */
+function suitPrettyPrint(suit) {
+    switch (suit) {
+        case "C":
+            return ["♣", "suit-c"];
+        case "D":
+            return ["♦", "suit-d"];
+        case "H":
+            return ["♥", "suit-h"];
+        case "S":
+            return ["♠", "suit-s"];
+        default:
+            throw new Error("unreachable");
+    }
+}
+
+/**
  * @param {Bid} bid - bid to print
  * @return {[string, string | undefined]}
  */
@@ -189,13 +290,10 @@ function bidPrettyText(bid) {
     const [prettyDenom, style] = (() => {
         switch (bid.denom) {
             case "C":
-                return ["♣", "suit-c"];
             case "D":
-                return ["♦", "suit-d"];
             case "H":
-                return ["♥", "suit-h"];
             case "S":
-                return ["♠", "suit-s"];
+                return suitPrettyPrint(bid.denom);
             case "NT":
                 return ["NT", undefined];
             default:
@@ -219,7 +317,7 @@ function auctionHistorySetDealer(dealer) {
     // initialize the first row
     const firstRow = history.insertRow(-1);
     for (let i = 0; i < 4; ++i) {
-        // FIXME: this hack forces table to draw the new row when West deals
+        // FIXME: this hack forces table to display the new row when West deals
         firstRow.insertCell(-1).innerHTML = "&nbsp;";
     }
 
@@ -265,7 +363,78 @@ function auctionHistoryAdd(bid) {
 }
 
 /**
- * @param {{ phase?: unknown; bidHistory?: unknown }} raw - raw data
+ * @param {Rank} rank
+ * @return {string}
+ */
+function rankPrettyPrint(rank) {
+    switch (rank) {
+        case 0:
+            return "2";
+        case 1:
+            return "3";
+        case 2:
+            return "4";
+        case 3:
+            return "5";
+        case 4:
+            return "6";
+        case 5:
+            return "7";
+        case 6:
+            return "8";
+        case 7:
+            return "9";
+        case 8:
+            return "t";
+        case 9:
+            return "J";
+        case 10:
+            return "Q";
+        case 11:
+            return "K";
+        case 12:
+            return "A";
+    }
+}
+
+/**
+ * @param {[Suit, Rank][]} hand - player hand to display
+ */
+function displayPlayerHand(hand) {
+    const bHandElem = assertGetElementById("bottom-hand");
+
+    /** @type {Record<Suit, [Rank, string][]>} */
+    const template = {
+        S: [],
+        H: [],
+        D: [],
+        C: [],
+    };
+
+    /** @type {Suit[]} */
+    const ALL_SUITS_ORDERED = ["S", "H", "D", "C"];
+
+    for (const [suit, rank] of hand) {
+        const repr = rankPrettyPrint(rank);
+        template[suit].push([rank, repr]);
+    }
+
+    const handDiv = document.createElement("div");
+    for (const suit of ALL_SUITS_ORDERED) {
+        const [suitRepr, suitStyle] = suitPrettyPrint(suit);
+        const suitDiv = document.createElement("div");
+        suitDiv.className = suitStyle;
+        suitDiv.innerText = suitRepr;
+        for (const [_, rankRepr] of template[suit]) {
+            suitDiv.innerText += ` ${rankRepr}`;
+        }
+        handDiv.appendChild(suitDiv);
+    }
+    bHandElem.appendChild(handDiv);
+}
+
+/**
+ * @param {{ phase?: unknown; bidHistory?: unknown; deal?: unknown }} raw - raw data
  * @return {boolean}
  */
 function handleInitialState(raw) {
@@ -277,11 +446,13 @@ function handleInitialState(raw) {
     const [rawDealer, rawHistory] = raw.bidHistory;
     const dealer = parseSide(rawDealer);
     const history = parseAuctionHistory(rawHistory);
-    if (!dealer || !history) {
-        printErrorMessage(`init state: bad dealer or history: ${JSON.stringify(raw.bidHistory)}`);
+    const cards = parseDeal(raw.deal);
+    if (!dealer || !history || !cards) {
+        printErrorMessage(`init state: bad init object: ${JSON.stringify(raw)}`);
         return false;
     }
 
+    displayPlayerHand(cards);
     auctionHistorySetDealer(dealer);
 
     let lastContract = null;
@@ -297,7 +468,6 @@ function handleInitialState(raw) {
     if (lastContract) {
         disableInactiveBids(lastContract);
     }
-
     return true;
 }
 

@@ -5,8 +5,8 @@ export type Rank = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 export type Card = [Suit, Rank];
 export type Deal = Record<Side, Card[]>;
 
-const ALL_SUITS: Suit[] = ["C", "D", "H", "S"];
-const ALL_RANKS: Rank[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+export const ALL_SUITS: Suit[] = ["S", "H", "D", "C"];
+export const ALL_RANKS: Rank[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 export function getRandomDeal(): Deal {
     const cards: Card[] = [];
