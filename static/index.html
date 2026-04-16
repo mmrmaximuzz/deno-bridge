@@ -8,6 +8,8 @@
         <link rel="stylesheet" href="style.css">
     </head>
     <body>
+        <div id="side"></div>
+
         <table id="auction">
             <tr>
                 <td id="bid-1-c" class="bid"><span class="suit-c">1♣</span></td>
@@ -74,9 +76,19 @@
             </tr>
         </table>
 
-        <div id="messages"></div>
+        <table id="auction-history">
+            <tr>
+                <th>W</th>
+                <th>N</th>
+                <th>E</th>
+                <th>S</th>
+            </tr>
+        </table>
+
         <form id="chat-form">
             <input id="chat-input" />
         </form>
+
+        <div id="messages"></div>
     </body>
 </html>

@@ -72,7 +72,7 @@ function generateBidVariants(bids: Bid[]): BidVariant[] {
                 dealer: initSide,
                 bids: prefix.concat(bids),
             });
-            prefix.push("pass");
+            prefix.push("PASS");
             side = nextSide(side);
         }
     }
@@ -97,25 +97,25 @@ function playBiddingWithDealer(bids: Bid[], dealer: Side): BiddingResult {
 
 Deno.test("bidding: -", () => {
     for (const side of ALL_SIDES) {
-        assertEquals(playBiddingWithDealer(["pass"], side), "inprogress");
+        assertEquals(playBiddingWithDealer(["PASS"], side), "inprogress");
     }
 });
 
 Deno.test("bidding: - -", () => {
     for (const side of ALL_SIDES) {
-        assertEquals(playBiddingWithDealer(["pass", "pass"], side), "inprogress");
+        assertEquals(playBiddingWithDealer(["PASS", "PASS"], side), "inprogress");
     }
 });
 
 Deno.test("bidding: - - -", () => {
     for (const side of ALL_SIDES) {
-        assertEquals(playBiddingWithDealer(["pass", "pass", "pass"], side), "inprogress");
+        assertEquals(playBiddingWithDealer(["PASS", "PASS", "PASS"], side), "inprogress");
     }
 });
 
 Deno.test("bidding: - - - -", () => {
     for (const side of ALL_SIDES) {
-        assertEquals(playBiddingWithDealer(["pass", "pass", "pass", "pass"], side), "passout");
+        assertEquals(playBiddingWithDealer(["PASS", "PASS", "PASS", "PASS"], side), "passout");
     }
 });
 
@@ -123,14 +123,14 @@ Deno.test("bidding: 1 - - -", () => {
     for (
         const { bids, opener, dealer } of generateBidVariants([
             { level: 1, denom: "C" },
-            "pass",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
+            "PASS",
         ])
     ) {
         assertEquals(playBiddingWithDealer(bids, dealer), {
             contract: { level: 1, denom: "C" },
-            status: "free",
+            status: "FREE",
             declarer: opener,
         });
     }
@@ -140,16 +140,16 @@ Deno.test("bidding: 1 - 2 - - -", () => {
     for (
         const { bids, opener, dealer } of generateBidVariants([
             { level: 1, denom: "C" },
-            "pass",
+            "PASS",
             { level: 2, denom: "C" },
-            "pass",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
+            "PASS",
         ])
     ) {
         assertEquals(playBiddingWithDealer(bids, dealer), {
             contract: { level: 2, denom: "C" },
-            status: "free",
+            status: "FREE",
             declarer: opener,
         });
     }
@@ -159,18 +159,18 @@ Deno.test("bidding: 1 - 1o - 2 - - -", () => {
     for (
         const { bids, opener, dealer } of generateBidVariants([
             { level: 1, denom: "C" },
-            "pass",
+            "PASS",
             { level: 1, denom: "NT" },
-            "pass",
+            "PASS",
             { level: 2, denom: "NT" },
-            "pass",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
+            "PASS",
         ])
     ) {
         assertEquals(playBiddingWithDealer(bids, dealer), {
             contract: { level: 2, denom: "NT" },
-            status: "free",
+            status: "FREE",
             declarer: getPartner(opener),
         });
     }
@@ -181,16 +181,16 @@ Deno.test("bidding: 1 1o - 4 - - -", () => {
         const { bids, opener, dealer } of generateBidVariants([
             { level: 1, denom: "C" },
             { level: 1, denom: "H" },
-            "pass",
+            "PASS",
             { level: 4, denom: "H" },
-            "pass",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
+            "PASS",
         ])
     ) {
         assertEquals(playBiddingWithDealer(bids, dealer), {
             contract: { level: 4, denom: "H" },
-            status: "free",
+            status: "FREE",
             declarer: nextSide(opener),
         });
     }
@@ -200,19 +200,19 @@ Deno.test("bidding: 1 - - 1o - 4 - - -", () => {
     for (
         const { bids, opener, dealer } of generateBidVariants([
             { level: 1, denom: "C" },
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
             { level: 1, denom: "H" },
-            "pass",
+            "PASS",
             { level: 4, denom: "H" },
-            "pass",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
+            "PASS",
         ])
     ) {
         assertEquals(playBiddingWithDealer(bids, dealer), {
             contract: { level: 4, denom: "H" },
-            status: "free",
+            status: "FREE",
             declarer: getPartner(nextSide(opener)),
         });
     }
@@ -223,9 +223,9 @@ Deno.test("bidding: 1 X - - -", () => {
         const { bids, opener, dealer } of generateBidVariants([
             { level: 1, denom: "C" },
             "X",
-            "pass",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
+            "PASS",
         ])
     ) {
         assertEquals(playBiddingWithDealer(bids, dealer), {
@@ -240,12 +240,12 @@ Deno.test("bidding: 1 - - X - - -", () => {
     for (
         const { bids, opener, dealer } of generateBidVariants([
             { level: 1, denom: "C" },
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
             "X",
-            "pass",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
+            "PASS",
         ])
     ) {
         assertEquals(playBiddingWithDealer(bids, dealer), {
@@ -262,9 +262,9 @@ Deno.test("bidding: 1 X XX - - -", () => {
             { level: 1, denom: "C" },
             "X",
             "XX",
-            "pass",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
+            "PASS",
         ])
     ) {
         assertEquals(playBiddingWithDealer(bids, dealer), {
@@ -280,12 +280,12 @@ Deno.test("bidding: 1 X - - XX - - -", () => {
         const { bids, opener, dealer } of generateBidVariants([
             { level: 1, denom: "C" },
             "X",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
             "XX",
-            "pass",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
+            "PASS",
         ])
     ) {
         assertEquals(playBiddingWithDealer(bids, dealer), {
@@ -300,13 +300,13 @@ Deno.test("bidding: 1 - - X XX - - -", () => {
     for (
         const { bids, opener, dealer } of generateBidVariants([
             { level: 1, denom: "C" },
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
             "X",
             "XX",
-            "pass",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
+            "PASS",
         ])
     ) {
         assertEquals(playBiddingWithDealer(bids, dealer), {
@@ -321,15 +321,15 @@ Deno.test("bidding: 1 - - X - - XX - - -", () => {
     for (
         const { bids, opener, dealer } of generateBidVariants([
             { level: 1, denom: "C" },
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
             "X",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
             "XX",
-            "pass",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
+            "PASS",
         ])
     ) {
         assertEquals(playBiddingWithDealer(bids, dealer), {
@@ -355,7 +355,7 @@ Deno.test("bidding: X(err)", () => {
 Deno.test("bidding: 1 - X(err)", () => {
     for (
         const { bids, dealer } of generateBidVariants(
-            [{ level: 1, denom: "C" }, "pass", "X"],
+            [{ level: 1, denom: "C" }, "PASS", "X"],
         )
     ) {
         assertThrows(
@@ -401,7 +401,7 @@ Deno.test("bidding: 1 - XX(err)", () => {
     for (
         const { bids, dealer } of generateBidVariants([
             { level: 1, denom: "C" },
-            "pass",
+            "PASS",
             "XX",
         ])
     ) {
@@ -419,8 +419,8 @@ Deno.test("bidding: 1 - - XX(err)", () => {
     for (
         const { bids, dealer } of generateBidVariants([
             { level: 1, denom: "C" },
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
             "XX",
         ])
     ) {
@@ -480,8 +480,8 @@ Deno.test("bidding: demo from PBN2.1 spec", () => {
             // T2
             { level: 4, denom: "NT" },
             "X",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
 
             // T3
             { level: 5, denom: "C" },
@@ -490,9 +490,9 @@ Deno.test("bidding: demo from PBN2.1 spec", () => {
             "X",
 
             // T4
-            "pass",
-            "pass",
-            "pass",
+            "PASS",
+            "PASS",
+            "PASS",
         ], "N"),
         {
             contract: { level: 5, denom: "H" },

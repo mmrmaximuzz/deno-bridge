@@ -11,8 +11,8 @@ import {
 export type Level = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type Denomination = "C" | "D" | "H" | "S" | "NT";
 export type Contract = { level: Level; denom: Denomination };
-export type ContractStatus = "free" | "X" | "XX";
-export type Bid = "pass" | "X" | "XX" | Contract;
+export type ContractStatus = "FREE" | "X" | "XX";
+export type Bid = "PASS" | "X" | "XX" | Contract;
 export type FinalContract = {
     contract: Contract;
     status: ContractStatus;
@@ -88,7 +88,7 @@ class BiddingImpl implements Bidding {
 
     acceptBid(bid: Bid): void {
         this.state.history.push(bid);
-        if (bid != "pass") {
+        if (bid != "PASS") {
             // any non-pass bid clears passes
             this.state.nrPasses = 0;
         }
@@ -119,7 +119,7 @@ class BiddingImpl implements Bidding {
         this.state.activeContract = {
             contract: { level: contract.level, denom: contract.denom },
             side: side,
-            status: "free",
+            status: "FREE",
         };
 
         this.acceptBid(contract);
@@ -167,7 +167,7 @@ class BiddingImpl implements Bidding {
             throw new InvalidBid("the bidding is over");
         }
 
-        if (bid == "pass") {
+        if (bid == "PASS") {
             switch (this.state.nrPasses) {
                 case 0:
                     this.state.nrPasses = 1;
@@ -207,7 +207,7 @@ class BiddingImpl implements Bidding {
                 throw new InvalidBid("double on no contract");
             }
 
-            if (this.state.activeContract.status != "free") {
+            if (this.state.activeContract.status != "FREE") {
                 throw new InvalidBid("double on non-free contract");
             }
 
@@ -247,7 +247,7 @@ class BiddingImpl implements Bidding {
             // sanity check
             if (
                 this.state.activeContract.side == this.state.currentSide &&
-                this.state.activeContract.status == "free"
+                this.state.activeContract.status == "FREE"
             ) {
                 throw new Error("assertion error: free bid reached its declarer");
             }

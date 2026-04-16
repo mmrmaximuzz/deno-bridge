@@ -1,6 +1,7 @@
 import { Engine, EngineFullState } from "./game/engine.ts";
 import { ALL_SIDES, Side } from "./game/common.ts";
 import { parseBid } from "./parsing.ts";
+import { Bid } from "./game/bidding.ts";
 
 export interface ConnectionManager {
     register(side: Side, sock: WebSocket): void;
@@ -9,10 +10,12 @@ export interface ConnectionManager {
 class ConnectionManagerImpl implements ConnectionManager {
     conns: Record<Side, WebSocket | null>;
     engine: Engine;
+    gen: number;
 
     constructor(engine: Engine) {
         this.conns = { W: null, N: null, E: null, S: null };
         this.engine = engine;
+        this.gen = 0;
     }
 
     createNotification(notification: string): string {
@@ -23,8 +26,8 @@ class ConnectionManagerImpl implements ConnectionManager {
         return JSON.stringify({ kind: "error", data: `server: ${err}` });
     }
 
-    createInit(side: Side, state: EngineFullState): string {
-        return JSON.stringify({ side, state });
+    createInit(side: Side, state: EngineFullState, gen: number): string {
+        return JSON.stringify({ kind: "init", data: { side, state, gen } });
     }
 
     reportError(err: string, conn?: WebSocket): void {
@@ -37,6 +40,11 @@ class ConnectionManagerImpl implements ConnectionManager {
     }
 
     broadcastChatMessage(side: Side, text: string): void {
+        if (text.trim() == "") {
+            // do not spam empty messages
+            return;
+        }
+
         for (const s of ALL_SIDES) {
             const line = s == side ? `${side}(you): ${text}` : `${side}: ${text}`;
             const conn = this.conns[s];
@@ -47,8 +55,23 @@ class ConnectionManagerImpl implements ConnectionManager {
         }
     }
 
+    broadcastBidMessage(side: Side, bid: Bid): void {
+        for (const s of ALL_SIDES) {
+            const conn = this.conns[s];
+            conn?.send(JSON.stringify({
+                kind: "engine",
+                data: {
+                    kind: "auction",
+                    side,
+                    bid,
+                    gen: this.gen,
+                },
+            }));
+        }
+    }
+
     handleInitMessage(conn: WebSocket, side: Side): void {
-        conn.send(this.createInit(side, this.engine.getFullState()));
+        conn.send(this.createInit(side, this.engine.getFullState(), this.gen));
     }
 
     handleEngineAuctionMessage(conn: WebSocket, side: Side, data: unknown): void {
@@ -68,6 +91,8 @@ class ConnectionManagerImpl implements ConnectionManager {
 
         switch (response.kind) {
             case "ok":
+                ++this.gen;
+                this.broadcastBidMessage(side, bid);
                 break;
             case "err":
                 conn.send(this.createNotification(`engine: ${response.err}`));
@@ -97,7 +122,7 @@ class ConnectionManagerImpl implements ConnectionManager {
     ): void {
         switch (obj.kind) {
             case "chat":
-                if (typeof (obj.data) != "string") {
+                if (typeof obj.data != "string") {
                     this.reportError(`${side}: bad chat data: ${obj.data}`, conn);
                     return;
                 }
@@ -107,7 +132,7 @@ class ConnectionManagerImpl implements ConnectionManager {
                 this.handleInitMessage(conn, side);
                 return;
             case "engine":
-                if (typeof (obj.data) != "object" || obj.data == null) {
+                if (typeof obj.data != "object" || obj.data == null) {
                     this.reportError(`${side}: bad engine data: ${obj.data}`, conn);
                     return;
                 }
@@ -119,20 +144,26 @@ class ConnectionManagerImpl implements ConnectionManager {
         }
     }
 
-    handleMessage(conn: WebSocket, side: Side, message: string): void {
+    handleMessage(conn: WebSocket, side: Side, data: unknown): void {
+        if (typeof data != "string") {
+            this.reportError(`${side}: bad message type from websocket: ${typeof data}`, conn);
+            conn.close();
+            return;
+        }
+
         let rawObject: unknown = null;
         try {
-            rawObject = JSON.parse(message);
+            rawObject = JSON.parse(data);
         } catch (e) {
             if (e instanceof SyntaxError) {
-                this.reportError(`${side}: failed to parse JSON from message: ${message}`);
+                this.reportError(`${side}: failed to parse JSON from message: ${data}`);
                 return;
             }
             throw e;
         }
 
         if (typeof rawObject != "object" || rawObject == null) {
-            this.reportError(`${side}: bad message type: ${message}`, conn);
+            this.reportError(`${side}: bad message type: ${data}`, conn);
             return;
         }
 
@@ -161,13 +192,7 @@ class ConnectionManagerImpl implements ConnectionManager {
             this.handleOpen(sock, side);
         });
         sock.addEventListener("message", (event) => {
-            const data: unknown = event.data;
-            if (typeof data != "string") {
-                this.reportError(`${side}: bad message type from websocket: ${typeof data}`, sock);
-                sock.close();
-                return;
-            }
-            this.handleMessage(sock, side, data);
+            this.handleMessage(sock, side, event.data);
         });
         sock.addEventListener("close", () => {
             this.handleClose(side);

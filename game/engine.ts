@@ -7,11 +7,10 @@ export type EngineRequest = {
 };
 export type EngineResponse =
     | { kind: "ok" }
-    | { kind: "err"; err: string }
-;
+    | { kind: "err"; err: string };
 export type EngineFullState = {
     phase: "auction" | "attack" | "play";
-    bidHistory: [Side, Bid[]],
+    bidHistory: [Side, Bid[]];
 };
 export interface Engine {
     handle(req: EngineRequest): EngineResponse;
@@ -75,9 +74,8 @@ class EngineImpl implements Engine {
         return {
             phase: this.state.kind,
             bidHistory: this.state.bidding.getHistory(),
-        }
+        };
     }
-
 }
 
 export function createEngine(): Engine {

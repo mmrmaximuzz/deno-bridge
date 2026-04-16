@@ -1,6 +1,6 @@
 import { Bid, Denomination, Level } from "./game/bidding.ts";
 
-export function parseLevel(num: number): Level | null {
+export function parseLevel(num: unknown): Level | null {
     switch (num) {
         case 1:
         case 2:
@@ -15,7 +15,7 @@ export function parseLevel(num: number): Level | null {
     }
 }
 
-export function parseDenomination(denom: string): Denomination | null {
+export function parseDenomination(denom: unknown): Denomination | null {
     switch (denom) {
         case "C":
         case "D":
@@ -30,15 +30,12 @@ export function parseDenomination(denom: string): Denomination | null {
 
 export function parseBid(data: unknown): Bid | null {
     switch (data) {
-        case "pass":
+        case "PASS":
         case "X":
         case "XX":
             return data;
         default:
-            if (
-                typeof data != "object" || data == null || !("level" in data && "denom" in data) ||
-                typeof (data.level) != "number" || typeof (data.denom) != "string"
-            ) {
+            if (typeof data != "object" || !data || !("level" in data && "denom" in data)) {
                 return null;
             } else {
                 const level = parseLevel(data.level);

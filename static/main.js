@@ -1,9 +1,267 @@
 "use strict";
 
 /**
+ * @typedef { "W" | "N" | "E" | "S" } Side - player side
+ * @typedef { 1 | 2 | 3 | 4 | 5 | 6 | 7 } Level - contract level
+ * @typedef { "C" | "D" | "H" | "S" | "NT" } Denomination - contract denomination
+ * @typedef { { level: Level; denom: Denomination } } Contract - contract bid
+ * @typedef { "PASS" | "X" | "XX" | Contract } Bid - auction bid
+ * @typedef {Bid[]} AuctionHistory - history of bids
+ */
+
+/**
  * @typedef {object} App - application data
  * @property {WebSocket} sock - WebSocket connection to the game server
+ * @property {[Bid, number][]} pending - pending updates if any
+ * @property {Side} [mySide] - current's player table position
+ * @property {number} [gen] - current generation of the engine state
  */
+
+/**
+ * @param {unknown} raw - input object
+ * @return {Side | null}
+ */
+function parseSide(raw) {
+    switch (raw) {
+        case "W":
+        case "N":
+        case "E":
+        case "S":
+            return raw;
+        default:
+            return null;
+    }
+}
+
+/**
+ * @param {unknown} raw - input object
+ * @return {Level | null}
+ */
+function parseLevel(raw) {
+    switch (raw) {
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+            return raw;
+        default:
+            return null;
+    }
+}
+
+/**
+ * @param {unknown} raw - input object
+ * @return {Denomination | null}
+ */
+function parseDenomination(raw) {
+    switch (raw) {
+        case "C":
+        case "D":
+        case "H":
+        case "S":
+        case "NT":
+            return raw;
+        default:
+            return null;
+    }
+}
+
+/**
+ * @param {unknown} raw - raw data to parse
+ * @return {Bid | null}
+ */
+function parseBid(raw) {
+    switch (raw) {
+        case "PASS":
+        case "X":
+        case "XX":
+            return raw;
+        default:
+            if (!raw || typeof raw != "object" || !("level" in raw && "denom" in raw)) {
+                return null;
+            } else {
+                const level = parseLevel(raw.level);
+                const denom = parseDenomination(raw.denom);
+                if (!level || !denom) {
+                    return null;
+                }
+                return { level, denom };
+            }
+    }
+}
+
+/**
+ * @param {unknown} raw - raw data to parse
+ * @return {AuctionHistory | null}
+ */
+function parseAuctionHistory(raw) {
+    /** @type AuctionHistory */
+    const result = [];
+
+    if (!(raw instanceof Array)) {
+        return null;
+    }
+    for (const rawItem of raw) {
+        const bid = parseBid(rawItem);
+        if (!bid) {
+            return null;
+        }
+        result.push(bid);
+    }
+    return result;
+}
+
+/**
+ * @param {Contract} b1 - 1st operand of >=
+ * @param {Contract} b2 - 2nd operand of >=
+ * @return {boolean}
+ */
+function contractGreaterOrEqual(b1, b2) {
+    if (b1.level > b2.level) {
+        return true;
+    }
+
+    if (b1.level == b2.level) {
+        switch (b1.denom) {
+            case "NT":
+                return true;
+            default:
+                return b2.denom != "NT" && b1.denom >= b2.denom;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * @param {Bid} bid - bid to print
+ * @return {[string, string | undefined]}
+ */
+function bidPrettyText(bid) {
+    if (typeof bid == "string") {
+        return [bid, undefined];
+    }
+
+    const [prettyDenom, style] = (() => {
+        switch (bid.denom) {
+            case "C":
+                return ["♣", "suit-c"];
+            case "D":
+                return ["♦", "suit-d"];
+            case "H":
+                return ["♥", "suit-h"];
+            case "S":
+                return ["♠", "suit-s"];
+            case "NT":
+                return ["NT", undefined];
+            default:
+                throw new Error("AssertionError: unreachable");
+        }
+    })();
+
+    return [`${bid.level}${prettyDenom}`, style];
+}
+
+/**
+ * @param {Side} dealer - the dealer in this bidding
+ * @return {void}
+ */
+function auctionHistorySetDealer(dealer) {
+    const history = document.getElementById("auction-history");
+    if (!history || !(history instanceof HTMLTableElement)) {
+        throw new Error("failed to find auction-history element");
+    }
+
+    // initialize the first row
+    const firstRow = history.insertRow(-1);
+    const cells = [
+        firstRow.insertCell(0),
+        firstRow.insertCell(1),
+        firstRow.insertCell(2),
+        firstRow.insertCell(3),
+    ];
+
+    // stab non-meaning cells with a dash
+    for (let i = 0; i < cells.length; ++i) {
+        const headerCell = history.rows[0].cells[i];
+        if (headerCell.innerText == dealer) {
+            break;
+        }
+        cells[i].innerText = "-";
+    }
+}
+
+/**
+ * @param {Bid} bid - bid
+ * @return {void}
+ */
+function auctionHistoryAdd(bid) {
+    const history = document.getElementById("auction-history");
+    if (!history || !(history instanceof HTMLTableElement)) {
+        throw new Error("failed to find auction-history element");
+    }
+
+    // check if the last row is full
+    let lastRow = history.rows[history.rows.length - 1];
+    if (lastRow.cells[3].innerText != "") {
+        lastRow = history.insertRow(-1);
+        lastRow.insertCell(0);
+        lastRow.insertCell(1);
+        lastRow.insertCell(2);
+        lastRow.insertCell(3);
+    }
+
+    for (let i = 0; i < lastRow.cells.length; ++i) {
+        if (!lastRow.cells[i].innerText) {
+            const [prettyText, style] = bidPrettyText(bid);
+            lastRow.cells[i].innerText = prettyText;
+            if (style) {
+                lastRow.cells[i].className = style;
+            }
+            break;
+        }
+    }
+}
+
+/**
+ * @param {{ phase?: unknown; bidHistory?: unknown }} raw - raw data
+ * @return {boolean}
+ */
+function handleInitialState(raw) {
+    if (!(raw.bidHistory instanceof Array) || raw.bidHistory.length != 2) {
+        printErrorMessage(`init state: bad bid history: ${JSON.stringify(raw.bidHistory)}`);
+        return false;
+    }
+
+    const [rawDealer, rawHistory] = raw.bidHistory;
+    const dealer = parseSide(rawDealer);
+    const history = parseAuctionHistory(rawHistory);
+    if (!dealer || !history) {
+        printErrorMessage(`init state: bad dealer or history: ${JSON.stringify(raw.bidHistory)}`);
+        return false;
+    }
+
+    auctionHistorySetDealer(dealer);
+
+    let lastContract = null;
+    for (const bid of history) {
+        auctionHistoryAdd(bid);
+
+        // if bid is a contract, save the last item to disable lesser bids
+        if (typeof bid != "string") {
+            lastContract = bid;
+        }
+    }
+
+    if (lastContract) {
+        disableInactiveBids(lastContract);
+    }
+
+    return true;
+}
 
 /**
  * @return {WebSocket}
@@ -39,7 +297,7 @@ function createPassMessage() {
         kind: "engine",
         data: {
             kind: "auction",
-            bid: "pass",
+            bid: "PASS",
         },
     });
 }
@@ -94,7 +352,6 @@ function createInitMessage() {
 
 /**
  * @param {Element} elem - Bid Element
- *
  * @param {App} app - application data
  */
 function handleBidClick(elem, app) {
@@ -174,32 +431,181 @@ function printChatMessage(message) {
 }
 
 /**
+ * @param {string} id
+ * @return {Contract}
+ */
+function assertElem2Contract(id) {
+    const [_, rawLevel, rawDenom] = id.split("-");
+    const level = parseLevel(Number(rawLevel));
+    const denom = parseDenomination(rawDenom == "n" ? "NT" : rawDenom.toUpperCase());
+    if (!level || !denom) {
+        throw new Error(`AssertionError: failed to parse ${id}`);
+    }
+    return { level, denom };
+}
+
+/**
+ * @param {Bid} bid - the latest bid
+ */
+function disableInactiveBids(bid) {
+    if (typeof bid == "string") {
+        // non-contract bids
+        return;
+    }
+    mapBidElems((elem) => {
+        if (elem.id.search("0") != -1) {
+            // skip non-contract elems
+            return;
+        }
+        const elemContract = assertElem2Contract(elem.id);
+        if (contractGreaterOrEqual(bid, elemContract)) {
+            elem.style["visibility"] = "hidden";
+        }
+    });
+}
+
+/**
+ * @param {Side} side
+ * @return {void}
+ */
+function drawMySide(side) {
+    const sideElem = document.getElementById("side");
+    if (!sideElem) {
+        throw new Error("AssertionError: failed to find side element");
+    }
+    sideElem.innerText = side;
+}
+
+/**
+ * @param {App} app - application data
+ * @param {{ side?: unknown; state?: unknown; gen?: unknown }} data - current engine state
+ *
+ * @return {void}
+ */
+function processInitMessage(app, data) {
+    const side = parseSide(data.side);
+    if (!side) {
+        printErrorMessage(`bad initialization state: bad side ${side}`);
+        return;
+    }
+
+    if (typeof data.gen != "number") {
+        printErrorMessage(`bad init state: gen number is ${data.gen}`);
+        return;
+    }
+    if (!data.state || typeof data.state != "object") {
+        printErrorMessage(`bad initialization state: ${JSON.stringify(data.state)}`);
+        return;
+    }
+    const done = handleInitialState(data.state);
+    if (!done) {
+        printErrorMessage(`failed to handle init state: ${JSON.stringify(data.state)}`);
+        return;
+    }
+
+    drawMySide(side);
+    app.mySide = side;
+    app.gen = data.gen;
+    // apply pending updates if any
+    for (const [pending, gen] of app.pending) {
+        processBidMessage(app, pending, gen);
+    }
+}
+
+/**
+ * @param {App} app - application data
+ * @param {Bid} bid - input bid
+ * @param {number} gen - the message generation
+ * @return {void}
+ */
+function processBidMessage(app, bid, gen) {
+    if (app.gen == undefined) {
+        // didn't receive the initial message, delay handling
+        app.pending.push([bid, gen]);
+        return;
+    }
+    if (app.gen >= gen) {
+        // outdated message, ignore
+        return;
+    }
+    disableInactiveBids(bid);
+    auctionHistoryAdd(bid);
+}
+
+/**
+ * @param {App} app - application data
+ * @param {{ kind?: unknown; bid?: unknown; gen?: unknown }} data - engine message
+ * @return {void}
+ */
+function processEngineMessage(app, data) {
+    switch (data.kind) {
+        case "auction": {
+            const bid = parseBid(data.bid);
+            if (!bid) {
+                printErrorMessage(
+                    `failed to parse bid in engine message: ${JSON.stringify(data.bid)}`,
+                );
+                return;
+            }
+            if (typeof data.gen != "number") {
+                printErrorMessage(`bad generation number in engine message: ${data.gen}`);
+                return;
+            }
+            processBidMessage(app, bid, data.gen);
+            break;
+        }
+        default:
+            printErrorMessage(`bad engine message kind: ${data.kind}`);
+            return;
+    }
+}
+
+/**
+ * @param {App} app - application data
  * @param {{ kind?: string; data?: unknown }} message - application data
  *
  * @return {void}
  */
-function processMessage(message) {
+function processMessage(app, message) {
     switch (message.kind) {
         case "chat":
-            if (typeof (message.data) != "string") {
+            if (typeof message.data != "string") {
                 printErrorMessage(`invalid chat data from server: ${message.data}`);
                 return;
             }
             printChatMessage(message.data);
             return;
         case "error":
-            if (typeof (message.data) != "string") {
+            if (typeof message.data != "string") {
                 printErrorMessage(`invalid error message from server: ${message.data}`);
                 return;
             }
             printErrorMessage(message.data);
             return;
         case "notify":
-            if (typeof (message.data) != "string") {
+            if (typeof message.data != "string") {
                 printErrorMessage(`invalid notification message from server: ${message.data}`);
                 return;
             }
             printNotificationMessage(message.data);
+            return;
+        case "init":
+            if (typeof message.data != "object" || message.data == null) {
+                printErrorMessage(
+                    `invalid initialization state from server: ${JSON.stringify(message.data)}`,
+                );
+                return;
+            }
+            processInitMessage(app, message.data);
+            return;
+        case "engine":
+            if (typeof message.data != "object" || message.data == null) {
+                printErrorMessage(
+                    `invalid engine data from server: ${JSON.stringify(message.data)}`,
+                );
+                return;
+            }
+            processEngineMessage(app, message.data);
             return;
         default:
             printErrorMessage(`invalid message kind from server: ${message.kind}`);
@@ -224,17 +630,22 @@ function handleSubmit(app) {
     }
 
     const text = input.value;
+    if (input.value.trim() == "") {
+        // protect against whitespaces message submit
+        return;
+    }
     input.value = ""; // flush the message text
 
     app.sock.send(createTextMessage(text));
 }
 
 /**
+ * @param {App} app - application data
  * @param {MessageEvent} event - application data
  *
  * @return {void}
  */
-function handleServerMessage(event) {
+function handleServerMessage(app, event) {
     /** @type {unknown} */
     const data = event.data;
     if (typeof data != "string") {
@@ -261,7 +672,7 @@ function handleServerMessage(event) {
         return;
     }
 
-    processMessage(rawMessage);
+    processMessage(app, rawMessage);
 }
 
 /**
@@ -277,12 +688,10 @@ function handleSocketConnect(app) {
 }
 
 /**
- * @param {App} app - application data
- *
+ * @param { (arg0: HTMLElement) => void } f - function to apply
  * @return {void}
  */
-function registerEvents(app) {
-    // register UI clicks
+function mapBidElems(f) {
     const bidElems = document.getElementsByClassName("bid");
     if (!bidElems) {
         printErrorMessage("AssertionError: bid elements not found");
@@ -290,10 +699,26 @@ function registerEvents(app) {
     }
     for (let i = 0; i < bidElems.length; ++i) {
         const elem = bidElems[i];
+        // dynamic cast
+        if (!(elem instanceof HTMLElement)) {
+            throw new Error("AssertionError: bid is not HTMLElement");
+        }
+        f(elem);
+    }
+}
+
+/**
+ * @param {App} app - application data
+ *
+ * @return {void}
+ */
+function registerEvents(app) {
+    // register UI clicks
+    mapBidElems((elem) => {
         elem.addEventListener("click", () => {
             handleBidClick(elem, app);
         });
-    }
+    });
 
     // register chat input form
     const form = document.getElementById("chat-form");
@@ -308,7 +733,7 @@ function registerEvents(app) {
     };
 
     // attach websocket hooks
-    app.sock.onmessage = handleServerMessage;
+    app.sock.onmessage = (e) => handleServerMessage(app, e);
     app.sock.onopen = () => handleSocketConnect(app);
 }
 
@@ -316,6 +741,9 @@ function main() {
     /** @type {App} */
     const app = {
         sock: connectToGameServer(),
+        pending: [],
+        mySide: undefined,
+        gen: undefined,
     };
     registerEvents(app);
 }

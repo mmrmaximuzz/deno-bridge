@@ -3,6 +3,7 @@
     font-size: x-small;
     font-family: monospace;
     overflow-y: scroll;
+    margin-top: 2em;
 }
 
 #messages .error {
@@ -21,14 +22,31 @@
 }
 
 #auction {
-    width: 15em;
+    width: 15%;
     font-family: monospace;
     text-align: center;
     border: 1px solid black;
     border-collapse: collapse;
+    float: left;
+    margin-right: 1em;
+    table-layout: fixed;
 }
 
-#auction td {
+#auction tr td {
+    border: 1px solid black;
+}
+
+#auction-history {
+    width: 20%;
+    font-family: monospace;
+    text-align: center;
+    border: 1px solid black;
+    border-collapse: collapse;
+    float: none;
+    table-layout: fixed;
+}
+
+#auction-history tr th td {
     border: 1px solid black;
 }
 
