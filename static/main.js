@@ -218,20 +218,18 @@ function auctionHistorySetDealer(dealer) {
 
     // initialize the first row
     const firstRow = history.insertRow(-1);
-    const cells = [
-        firstRow.insertCell(0),
-        firstRow.insertCell(1),
-        firstRow.insertCell(2),
-        firstRow.insertCell(3),
-    ];
+    for (let i = 0; i < 4; ++i) {
+        // FIXME: this hack forces table to draw the new row when West deals
+        firstRow.insertCell(-1).innerHTML = "&nbsp;";
+    }
 
-    // stab non-meaning cells with a dash
-    for (let i = 0; i < cells.length; ++i) {
+    // stab skipped cells with a dash
+    for (let i = 0; i < firstRow.cells.length; ++i) {
         const headerCell = history.rows[0].cells[i];
         if (headerCell.innerText == dealer) {
             break;
         }
-        cells[i].innerText = "-";
+        firstRow.cells[i].innerText = "-";
     }
 }
 
@@ -247,16 +245,15 @@ function auctionHistoryAdd(bid) {
 
     // check if the last row is full
     let lastRow = history.rows[history.rows.length - 1];
-    if (lastRow.cells[3].innerText != "") {
+    if (lastRow.cells[3].innerHTML != "&nbsp;") {
         lastRow = history.insertRow(-1);
-        lastRow.insertCell(0);
-        lastRow.insertCell(1);
-        lastRow.insertCell(2);
-        lastRow.insertCell(3);
+        for (let i = 0; i < 4; ++i) {
+            lastRow.insertCell(-1).innerHTML = "&nbsp;";
+        }
     }
 
     for (let i = 0; i < lastRow.cells.length; ++i) {
-        if (!lastRow.cells[i].innerText) {
+        if (lastRow.cells[i].innerHTML == "&nbsp;") {
             const [prettyText, style] = bidPrettyText(bid);
             lastRow.cells[i].innerText = prettyText;
             if (style) {

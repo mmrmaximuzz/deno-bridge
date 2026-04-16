@@ -1,5 +1,6 @@
 import { Bid, Bidding, createBidding, InvalidBid } from "./bidding.ts";
-import { Side } from "./common.ts";
+import { Deal, getRandomDeal } from "./cards.ts";
+import { ALL_SIDES, Side, unbiasedRandRange } from "./common.ts";
 
 export type EngineRequest = {
     side: Side;
@@ -11,21 +12,31 @@ export type EngineResponse =
 export type EngineFullState = {
     phase: "auction" | "attack" | "play";
     bidHistory: [Side, Bid[]];
+    deal: Deal;
 };
 export interface Engine {
     handle(req: EngineRequest): EngineResponse;
     getFullState(): EngineFullState;
 }
 
-type EngineState = { kind: "auction"; bidding: Bidding };
-
+type EngineState = {
+    deal: Deal;
+    phase: "auction";
+    bidding: Bidding;
+};
 class EngineImpl implements Engine {
     state: EngineState;
-    deals: number;
+
+    createNewState(): EngineState {
+        return {
+            deal: getRandomDeal(),
+            phase: "auction",
+            bidding: createBidding(ALL_SIDES[unbiasedRandRange(4)]),
+        };
+    }
 
     constructor() {
-        this.state = { kind: "auction", bidding: createBidding("N") };
-        this.deals = 0;
+        this.state = this.createNewState();
     }
 
     ok(): EngineResponse {
@@ -37,11 +48,11 @@ class EngineImpl implements Engine {
     }
 
     handleAuctionPlay(side: Side, bid: Bid): EngineResponse {
-        switch (this.state.kind) {
+        switch (this.state.phase) {
             case "auction": {
                 const currentTurn = this.state.bidding.turn();
                 if (currentTurn != side) {
-                    return this.err(`now is ${currentTurn}'s turn, not yours`);
+                    return this.err(`now it is ${currentTurn}'s turn, not yours`);
                 }
                 try {
                     const res = this.state.bidding.handle(bid);
@@ -72,7 +83,8 @@ class EngineImpl implements Engine {
 
     getFullState(): EngineFullState {
         return {
-            phase: this.state.kind,
+            deal: this.state.deal,
+            phase: this.state.phase,
             bidHistory: this.state.bidding.getHistory(),
         };
     }

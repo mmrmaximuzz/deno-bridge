@@ -27,7 +27,23 @@ class ConnectionManagerImpl implements ConnectionManager {
     }
 
     createInit(side: Side, state: EngineFullState, gen: number): string {
-        return JSON.stringify({ kind: "init", data: { side, state, gen } });
+        if (state.phase == "auction") {
+            // on auction filter only the players cards
+            return JSON.stringify({
+                kind: "init",
+                data: {
+                    side,
+                    state: {
+                        phase: state.phase,
+                        bidHistory: state.bidHistory,
+                        deal: state.deal[side],
+                    },
+                    gen,
+                },
+            });
+        } else {
+            throw new Error("not implemented");
+        }
     }
 
     reportError(err: string, conn?: WebSocket): void {

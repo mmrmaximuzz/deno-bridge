@@ -67,3 +67,15 @@ export function sideNSDynamicCast(side: Side): "N" | "S" {
 export function samePairs(s1: Side, s2: Side): boolean {
     return getPair(s1) == getPair(s2);
 }
+
+export function unbiasedRandRange(limit: number): number {
+    const upperLimit = Math.floor(0xFFFFFFFF / limit) * limit;
+    while (true) {
+        const bytes = new Uint32Array(1);
+        crypto.getRandomValues(bytes);
+        const value = bytes[0];
+        if (value < upperLimit) {
+            return value % limit;
+        }
+    }
+}
