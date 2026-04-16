@@ -1,4 +1,6 @@
 {
     "hostname": "127.0.0.1",
-    "port": 60000
+    "port": 60000,
+    "cert": "server.crt",
+    "key": "server.key"
 }

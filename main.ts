@@ -104,7 +104,7 @@ function main() {
     for (const side of ALL_SIDES) {
         const playerToken = playerTokens[side];
         const url =
-            `http://${settings.hostname}:${settings.port}/${accessToken}/${playerToken}/static/index.html`;
+            `https://${settings.hostname}:${settings.port}/${accessToken}/${playerToken}/static/index.html`;
         console.log(`${side} - ${url}`);
     }
 
@@ -116,11 +116,16 @@ function main() {
         connManager,
         accessToken,
         playerTokens,
-        hostname: `http://${settings.hostname}:${settings.port}`,
+        hostname: `https://${settings.hostname}:${settings.port}`,
     };
 
     Deno.serve(
-        { hostname: settings.hostname, port: settings.port },
+        {
+            hostname: settings.hostname,
+            port: settings.port,
+            cert: Deno.readTextFileSync(settings.cert),
+            key: Deno.readTextFileSync(settings.key),
+        },
         (req) => handler(req, app),
     );
 }

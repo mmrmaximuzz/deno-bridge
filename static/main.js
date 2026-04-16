@@ -56,6 +56,8 @@ function nextSide(side) {
             return "S";
         case "S":
             return "W";
+        default:
+            throw new Error("unreachable");
     }
 }
 
@@ -394,6 +396,8 @@ function rankPrettyPrint(rank) {
             return "K";
         case 12:
             return "A";
+        default:
+            throw new Error("unreachable");
     }
 }
 
@@ -477,7 +481,7 @@ function handleInitialState(raw) {
 function connectToGameServer() {
     const path = location.pathname;
     const basePath = path.split("/static/")[0];
-    const wsUrl = `ws://${location.host}${basePath}/game`;
+    const wsUrl = `wss://${location.host}${basePath}/game`;
     return new WebSocket(wsUrl);
 }
 
