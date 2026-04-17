@@ -402,6 +402,30 @@ function rankPrettyPrint(rank) {
 }
 
 /**
+ * @return {void}
+ */
+function resetUI() {
+    const auctionHistory = assertGetElementById("auction-history");
+    if (!(auctionHistory instanceof HTMLTableElement)) {
+        throw new Error("bad auction-history elem");
+    }
+
+    // remove all items from bid history except the header
+    while (auctionHistory.rows.length != 1) {
+        auctionHistory.rows[1].remove();
+    }
+
+    // make all bids visible again
+    mapBidElems((elem) => elem.style["visibility"] = "visible");
+
+    // remove all the cards from the players
+    for (const pos of ["bottom", "left", "top", "right"]) {
+        const playerHand = assertGetElementById(`${pos}-hand`);
+        playerHand.replaceChildren();
+    }
+}
+
+/**
  * @param {[Suit, Rank][]} hand - player hand to display
  */
 function displayPlayerHand(hand) {
@@ -881,7 +905,6 @@ function handleServerMessage(app, event) {
 
 /**
  * @param {App} app - application data
- *
  * @return {void}
  */
 function handleSocketConnect(app) {
@@ -889,6 +912,17 @@ function handleSocketConnect(app) {
     setTimeout(() => {
         app.sock.send(createInitMessage());
     });
+}
+
+/**
+ * @param {App} app - application data
+ * @param {HTMLButtonElement} button - "next" button
+ * @return {void}
+ */
+function handleNextClick(app, button) {
+    resetUI();
+    app.sock.send(createInitMessage());
+    button.disabled = true;
 }
 
 /**
@@ -927,6 +961,13 @@ function registerEvents(app) {
         // the form is sent via the websocket, prevent default browser submit
         return false;
     };
+
+    // register next button
+    const next = assertGetElementById("next-deal");
+    if (!(next instanceof HTMLButtonElement)) {
+        throw new Error("bad button type");
+    }
+    next.onclick = () => handleNextClick(app, next);
 
     // attach websocket hooks
     app.sock.onmessage = (e) => handleServerMessage(app, e);
