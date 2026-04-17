@@ -6,10 +6,11 @@
  * @typedef { "C" | "D" | "H" | "S" | "NT" } Denomination - contract denomination
  * @typedef { { level: Level; denom: Denomination } } Contract - contract bid
  * @typedef { "PASS" | "X" | "XX" | Contract } Bid - auction bid
- * @typedef {Bid[]} AuctionHistory - history of bids
+ * @typedef { Bid[] } AuctionHistory - history of bids
  * @typedef { "C" | "D" | "H" | "S" } Suit - card suit
  * @typedef { 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 } Rank - card suit
  * @typedef { [Suit, Rank] } Card - playing card
+ * @typedef { Record<Side, Card[]>} Deal - full deal
  *
  * @typedef {object} App - application data
  * @property {WebSocket} sock - WebSocket connection to the game server
@@ -17,6 +18,10 @@
  * @property {Side} [mySide] - current's player table position
  * @property {number} [gen] - current generation of the engine state
  */
+
+/** @type {Suit[]} */
+const ALL_SUITS_ORDERED = ["S", "H", "D", "C"];
+const ALL_POSITIONS = ["bottom", "left", "top", "right"];
 
 /**
  * @param {string} id
@@ -200,17 +205,17 @@ function parseRank(raw) {
 }
 
 /**
- * @param {unknown} rawDeal - deal object from server
- * @return {[Suit, Rank][] | null}
+ * @param {unknown} rawHand - hand data from server
+ * @return {Card[] | null}
  */
-function parseDeal(rawDeal) {
-    if (!(rawDeal instanceof Array)) {
+function parseHand(rawHand) {
+    if (!(rawHand instanceof Array)) {
         return null;
     }
 
-    /** @type [Suit, Rank][] */
+    /** @type {Card[]} */
     const result = [];
-    for (const rawItem of rawDeal) {
+    for (const rawItem of rawHand) {
         if (!(rawItem instanceof Array) || rawItem.length != 2) {
             return null;
         }
@@ -237,6 +242,27 @@ function parseDeal(rawDeal) {
         }
         return 0;
     }).reverse();
+}
+
+/**
+ * @param {unknown} rawDeal - deal data from server
+ * @return {Deal | null}
+ */
+function parseFullDeal(rawDeal) {
+    if (
+        !rawDeal || typeof rawDeal != "object" || !("W" in rawDeal) || !("N" in rawDeal) ||
+        !("E" in rawDeal) || !("S" in rawDeal)
+    ) {
+        return null;
+    }
+    const W = parseHand(rawDeal.W);
+    const N = parseHand(rawDeal.N);
+    const E = parseHand(rawDeal.E);
+    const S = parseHand(rawDeal.S);
+    if (!W || !N || !E || !S) {
+        return null;
+    }
+    return { W, N, E, S };
 }
 
 /**
@@ -419,7 +445,7 @@ function resetUI() {
     mapBidElems((elem) => elem.style["visibility"] = "visible");
 
     // remove all the cards from the players
-    for (const pos of ["bottom", "left", "top", "right"]) {
+    for (const pos of ALL_POSITIONS) {
         const playerHand = assertGetElementById(`${pos}-hand`);
         playerHand.replaceChildren();
     }
@@ -427,9 +453,11 @@ function resetUI() {
 
 /**
  * @param {[Suit, Rank][]} hand - player hand to display
+ * @param {string} position - player position to display
+ * @return {void}
  */
-function displayPlayerHand(hand) {
-    const bHandElem = assertGetElementById("bottom-hand");
+function displayPlayerHand(hand, position) {
+    const bHandElem = assertGetElementById(`${position}-hand`);
 
     /** @type {Record<Suit, [Rank, string][]>} */
     const template = {
@@ -438,9 +466,6 @@ function displayPlayerHand(hand) {
         D: [],
         C: [],
     };
-
-    /** @type {Suit[]} */
-    const ALL_SUITS_ORDERED = ["S", "H", "D", "C"];
 
     for (const [suit, rank] of hand) {
         const repr = rankPrettyPrint(rank);
@@ -474,13 +499,13 @@ function handleInitialState(raw) {
     const [rawDealer, rawHistory] = raw.bidHistory;
     const dealer = parseSide(rawDealer);
     const history = parseAuctionHistory(rawHistory);
-    const cards = parseDeal(raw.deal);
+    const cards = parseHand(raw.deal);
     if (!dealer || !history || !cards) {
         printErrorMessage(`init state: bad init object: ${JSON.stringify(raw)}`);
         return false;
     }
 
-    displayPlayerHand(cards);
+    displayPlayerHand(cards, "bottom");
     auctionHistorySetDealer(dealer);
 
     let lastContract = null;
@@ -769,7 +794,24 @@ function processBidMessage(app, bid, gen) {
 
 /**
  * @param {App} app - application data
- * @param {{ kind?: unknown; bid?: unknown; gen?: unknown }} data - engine message
+ * @param {Deal} deal
+ */
+function revealFullDeal(app, deal) {
+    let side = app.mySide;
+    if (!side) {
+        throw new Error("unreachable");
+    }
+
+    for (const pos of ALL_POSITIONS) {
+        assertGetElementById(`${pos}-hand`).replaceChildren();
+        displayPlayerHand(deal[side], pos);
+        side = nextSide(side);
+    }
+}
+
+/**
+ * @param {App} app - application data
+ * @param {{ kind?: unknown; bid?: unknown; gen?: unknown; reveal?: unknown  }} data - engine message
  * @return {void}
  */
 function processEngineMessage(app, data) {
@@ -789,6 +831,17 @@ function processEngineMessage(app, data) {
             processBidMessage(app, bid, data.gen);
             break;
         }
+        case "nextdeal": {
+            const deal = parseFullDeal(data.reveal);
+            if (!deal) {
+                printErrorMessage(`failed to parse full deal: ${JSON.stringify(data.reveal)}`);
+                return;
+            }
+            revealFullDeal(app, deal);
+            enableNextButton();
+            return;
+        }
+
         default:
             printErrorMessage(`bad engine message kind: ${data.kind}`);
             return;
@@ -926,6 +979,14 @@ function handleNextClick(app, button) {
     resetUI();
     app.sock.send(createInitMessage());
     button.disabled = true;
+}
+
+function enableNextButton() {
+    const button = assertGetElementById("next-deal");
+    if (!(button instanceof HTMLButtonElement)) {
+        throw new Error("bad next-deal type");
+    }
+    button.disabled = false;
 }
 
 /**

@@ -2,6 +2,7 @@ import { Engine, EngineFullState } from "./game/engine.ts";
 import { ALL_SIDES, Side } from "./game/common.ts";
 import { parseBid } from "./parsing.ts";
 import { Bid } from "./game/bidding.ts";
+import { Deal } from "./game/cards.ts";
 
 export interface ConnectionManager {
     register(side: Side, sock: WebSocket): void;
@@ -71,6 +72,16 @@ class ConnectionManagerImpl implements ConnectionManager {
         }
     }
 
+    broadcastNotificationMessage(notification: string): void {
+        for (const s of ALL_SIDES) {
+            const conn = this.conns[s];
+            conn?.send(JSON.stringify({
+                kind: "notify",
+                data: `server: ${notification}`,
+            }));
+        }
+    }
+
     broadcastBidMessage(side: Side, bid: Bid): void {
         for (const s of ALL_SIDES) {
             const conn = this.conns[s];
@@ -81,6 +92,19 @@ class ConnectionManagerImpl implements ConnectionManager {
                     side,
                     bid,
                     gen: this.gen,
+                },
+            }));
+        }
+    }
+
+    broadcastNextDealMessage(deal: Deal): void {
+        for (const s of ALL_SIDES) {
+            const conn = this.conns[s];
+            conn?.send(JSON.stringify({
+                kind: "engine",
+                data: {
+                    kind: "nextdeal",
+                    reveal: deal,
                 },
             }));
         }
@@ -109,6 +133,19 @@ class ConnectionManagerImpl implements ConnectionManager {
             case "ok":
                 ++this.gen;
                 this.broadcastBidMessage(side, bid);
+                break;
+            case "oknextdeal":
+                // send the last action first
+                ++this.gen;
+                this.broadcastBidMessage(side, bid);
+
+                // notify clients
+                this.broadcastNotificationMessage("game over, click 'Next deal' button");
+                this.broadcastNextDealMessage(this.engine.getFullState().deal);
+
+                // reset the state
+                this.gen = 0;
+                this.engine.restart();
                 break;
             case "err":
                 conn.send(this.createNotification(`engine: ${response.err}`));
