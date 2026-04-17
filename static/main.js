@@ -446,9 +446,10 @@ function resetUI() {
     // make all bids visible again
     mapBidElems((elem) => elem.style["visibility"] = "visible");
 
-    // remove all the cards from the players
+    // remove all the cards from the players and unmark the dealer
     for (const pos of ALL_POSITIONS) {
         removePlayerHand(pos);
+        assertGetElementById(`${pos}-side`).style.removeProperty("text-decoration-line");
     }
 }
 /**
@@ -496,10 +497,11 @@ function displayPlayerHand(hand, position) {
 }
 
 /**
+ * @param {Side} side - the player's side
  * @param {{ phase?: unknown; bidHistory?: unknown; deal?: unknown }} raw - raw data
  * @return {boolean}
  */
-function handleInitialState(raw) {
+function handleInitialState(side, raw) {
     if (!(raw.bidHistory instanceof Array) || raw.bidHistory.length != 2) {
         printErrorMessage(`init state: bad bid history: ${JSON.stringify(raw.bidHistory)}`);
         return false;
@@ -514,6 +516,7 @@ function handleInitialState(raw) {
         return false;
     }
 
+    labelPlayerSides(side, dealer);
     displayPlayerHand(cards, "bottom");
     auctionHistorySetDealer(dealer);
 
@@ -735,12 +738,17 @@ function disableInactiveBids(bid) {
 
 /**
  * @param {Side} mySide
+ * @param {Side} dealer
  * @return {void}
  */
-function labelPlayerSides(mySide) {
+function labelPlayerSides(mySide, dealer) {
     let side = mySide;
     for (const pos of ["bottom", "left", "top", "right"]) {
-        assertGetElementById(`${pos}-side`).innerText = side;
+        const elem = assertGetElementById(`${pos}-side`);
+        elem.innerText = side;
+        if (side == dealer) {
+            elem.style.setProperty("text-decoration-line", "underline");
+        }
         side = nextSide(side);
     }
 }
@@ -748,7 +756,6 @@ function labelPlayerSides(mySide) {
 /**
  * @param {App} app - application data
  * @param {{ side?: unknown; state?: unknown; gen?: unknown }} data - current engine state
- *
  * @return {void}
  */
 function processInitMessage(app, data) {
@@ -766,13 +773,12 @@ function processInitMessage(app, data) {
         printErrorMessage(`bad initialization state: ${JSON.stringify(data.state)}`);
         return;
     }
-    const done = handleInitialState(data.state);
+    const done = handleInitialState(side, data.state);
     if (!done) {
         printErrorMessage(`failed to handle init state: ${JSON.stringify(data.state)}`);
         return;
     }
 
-    labelPlayerSides(side);
     app.mySide = side;
     app.gen = data.gen;
     // apply pending updates if any
