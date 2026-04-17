@@ -333,14 +333,22 @@ function bidPrettyText(bid) {
 }
 
 /**
- * @param {Side} dealer - the dealer in this bidding
- * @return {void}
+ *  @return {HTMLTableElement}
  */
-function auctionHistorySetDealer(dealer) {
+function assertGetAuctionHistory() {
     const history = assertGetElementById("auction-history");
     if (!(history instanceof HTMLTableElement)) {
         throw new Error("bad type");
     }
+    return history;
+}
+
+/**
+ * @param {Side} dealer - the dealer in this bidding
+ * @return {void}
+ */
+function auctionHistorySetDealer(dealer) {
+    const history = assertGetAuctionHistory();
 
     // initialize the first row
     const firstRow = history.insertRow(-1);
@@ -364,10 +372,7 @@ function auctionHistorySetDealer(dealer) {
  * @return {void}
  */
 function auctionHistoryAdd(bid) {
-    const history = assertGetElementById("auction-history");
-    if (!history || !(history instanceof HTMLTableElement)) {
-        throw new Error("failed to find auction-history element");
-    }
+    const history = assertGetAuctionHistory();
 
     // check if the last row is full
     let lastRow = history.rows[history.rows.length - 1];
@@ -431,10 +436,7 @@ function rankPrettyPrint(rank) {
  * @return {void}
  */
 function resetUI() {
-    const auctionHistory = assertGetElementById("auction-history");
-    if (!(auctionHistory instanceof HTMLTableElement)) {
-        throw new Error("bad auction-history elem");
-    }
+    const auctionHistory = assertGetAuctionHistory();
 
     // remove all items from bid history except the header
     while (auctionHistory.rows.length != 1) {
@@ -446,9 +448,16 @@ function resetUI() {
 
     // remove all the cards from the players
     for (const pos of ALL_POSITIONS) {
-        const playerHand = assertGetElementById(`${pos}-hand`);
-        playerHand.replaceChildren();
+        removePlayerHand(pos);
     }
+}
+/**
+
+ * @param {string} position - player position to erase
+ * @return {void}
+ */
+function removePlayerHand(position) {
+    assertGetElementById(`${position}-hand`).replaceChildren();
 }
 
 /**
@@ -803,7 +812,7 @@ function revealFullDeal(app, deal) {
     }
 
     for (const pos of ALL_POSITIONS) {
-        assertGetElementById(`${pos}-hand`).replaceChildren();
+        removePlayerHand(pos);
         displayPlayerHand(deal[side], pos);
         side = nextSide(side);
     }
