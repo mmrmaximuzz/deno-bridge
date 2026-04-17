@@ -38,6 +38,7 @@ class ConnectionManagerImpl implements ConnectionManager {
                         phase: state.phase,
                         bidHistory: state.bidHistory,
                         deal: state.deal[side],
+                        vuln: state.vuln,
                     },
                     gen,
                 },

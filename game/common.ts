@@ -79,3 +79,7 @@ export function unbiasedRandRange(limit: number): number {
         }
     }
 }
+
+export function getRandomSide(): Side {
+    return ALL_SIDES[unbiasedRandRange(ALL_SIDES.length)];
+}

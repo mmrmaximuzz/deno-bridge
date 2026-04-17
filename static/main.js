@@ -10,7 +10,8 @@
  * @typedef { "C" | "D" | "H" | "S" } Suit - card suit
  * @typedef { 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 } Rank - card suit
  * @typedef { [Suit, Rank] } Card - playing card
- * @typedef { Record<Side, Card[]>} Deal - full deal
+ * @typedef { Record<Side, Card[]> } Deal - full deal
+ * @typedef { "NONE" | "NS" | "WE" | "BOTH" } Vulnerability - vulnerability state
  *
  * @typedef {object} App - application data
  * @property {WebSocket} sock - WebSocket connection to the game server
@@ -266,6 +267,22 @@ function parseFullDeal(rawDeal) {
 }
 
 /**
+ * @param {unknown} raw - raw input data
+ * @return {Vulnerability | null}
+ */
+function parseVulnerability(raw) {
+    switch (raw) {
+        case "NONE":
+        case "NS":
+        case "WE":
+        case "BOTH":
+            return raw;
+        default:
+            return null;
+    }
+}
+
+/**
  * @param {Contract} b1 - 1st operand of >=
  * @param {Contract} b2 - 2nd operand of >=
  * @return {boolean}
@@ -449,7 +466,12 @@ function resetUI() {
     // remove all the cards from the players and unmark the dealer
     for (const pos of ALL_POSITIONS) {
         removePlayerHand(pos);
-        assertGetElementById(`${pos}-side`).style.removeProperty("text-decoration-line");
+        const labelSide = assertGetElementById(`${pos}-side`);
+        labelSide.style.removeProperty("text-decoration-line");
+        labelSide.style.removeProperty("color");
+        if (labelSide.innerText.length != 1) {
+            labelSide.innerText = labelSide.innerText[0]; // remove any suffixes
+        }
     }
 }
 /**
@@ -498,7 +520,7 @@ function displayPlayerHand(hand, position) {
 
 /**
  * @param {Side} side - the player's side
- * @param {{ phase?: unknown; bidHistory?: unknown; deal?: unknown }} raw - raw data
+ * @param {{ phase?: unknown; bidHistory?: unknown; deal?: unknown; vuln?: unknown }} raw - raw data
  * @return {boolean}
  */
 function handleInitialState(side, raw) {
@@ -511,12 +533,13 @@ function handleInitialState(side, raw) {
     const dealer = parseSide(rawDealer);
     const history = parseAuctionHistory(rawHistory);
     const cards = parseHand(raw.deal);
-    if (!dealer || !history || !cards) {
+    const vuln = parseVulnerability(raw.vuln);
+    if (!dealer || !history || !cards || !vuln) {
         printErrorMessage(`init state: bad init object: ${JSON.stringify(raw)}`);
         return false;
     }
 
-    labelPlayerSides(side, dealer);
+    labelPlayerSides(side, dealer, vuln);
     displayPlayerHand(cards, "bottom");
     auctionHistorySetDealer(dealer);
 
@@ -739,15 +762,31 @@ function disableInactiveBids(bid) {
 /**
  * @param {Side} mySide
  * @param {Side} dealer
+ * @param {Vulnerability} vuln
  * @return {void}
  */
-function labelPlayerSides(mySide, dealer) {
+function labelPlayerSides(mySide, dealer, vuln) {
     let side = mySide;
     for (const pos of ["bottom", "left", "top", "right"]) {
         const elem = assertGetElementById(`${pos}-side`);
         elem.innerText = side;
+
         if (side == dealer) {
-            elem.style.setProperty("text-decoration-line", "underline");
+            elem.innerText += "*";
+        }
+
+        switch (vuln) {
+            case "NONE":
+                break;
+            case "NS":
+            case "WE":
+                if (vuln.search(side) == -1) {
+                    break;
+                }
+                /* falls through */
+            case "BOTH":
+                elem.style.color = "darkred";
+                break;
         }
         side = nextSide(side);
     }

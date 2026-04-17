@@ -1,6 +1,7 @@
 import { Bid, Bidding, createBidding, InvalidBid } from "./bidding.ts";
 import { Deal, getRandomDeal } from "./cards.ts";
-import { ALL_SIDES, Side, unbiasedRandRange } from "./common.ts";
+import { getRandomSide, Side } from "./common.ts";
+import { getRandomVulnerability, Vulnerability } from "./vulnerability.ts";
 
 export type EngineRequest = {
     side: Side;
@@ -13,6 +14,7 @@ export type EngineResponse =
 export type EngineFullState = {
     phase: "auction" | "attack" | "play";
     bidHistory: [Side, Bid[]];
+    vuln: Vulnerability;
     deal: Deal;
 };
 export interface Engine {
@@ -25,6 +27,7 @@ type EngineState = {
     deal: Deal;
     phase: "auction";
     bidding: Bidding;
+    vuln: Vulnerability;
 };
 class EngineImpl implements Engine {
     state: EngineState;
@@ -33,7 +36,8 @@ class EngineImpl implements Engine {
         return {
             deal: getRandomDeal(),
             phase: "auction",
-            bidding: createBidding(ALL_SIDES[unbiasedRandRange(4)]),
+            bidding: createBidding(getRandomSide()),
+            vuln: getRandomVulnerability(),
         };
     }
 
@@ -97,6 +101,7 @@ class EngineImpl implements Engine {
             deal: this.state.deal,
             phase: this.state.phase,
             bidHistory: this.state.bidding.getHistory(),
+            vuln: this.state.vuln,
         };
     }
 }
