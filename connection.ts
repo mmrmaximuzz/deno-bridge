@@ -125,6 +125,9 @@ class ConnectionManagerImpl implements ConnectionManager {
             case "auction":
                 this.handleEngineAuctionMessage(conn, side, data.bid);
                 return;
+            case "init":
+                this.handleInitMessage(conn, side);
+                return;
             default:
                 this.reportError(`${side}: bad engine message kind: ${data.kind}`, conn);
                 return;
@@ -143,9 +146,6 @@ class ConnectionManagerImpl implements ConnectionManager {
                     return;
                 }
                 this.broadcastChatMessage(side, obj.data);
-                return;
-            case "init":
-                this.handleInitMessage(conn, side);
                 return;
             case "engine":
                 if (typeof obj.data != "object" || obj.data == null) {

@@ -565,6 +565,18 @@ function createRedoubleMessage() {
 }
 
 /**
+ * @return {string} - JSON representation of the message
+ */
+function createInitMessage() {
+    return JSON.stringify({
+        kind: "engine",
+        data: {
+            kind: "init",
+        },
+    });
+}
+
+/**
  * Create text message for the chat.
  * @param {string} text - text message
  *
@@ -574,15 +586,6 @@ function createTextMessage(text) {
     return JSON.stringify({
         kind: "chat",
         data: text,
-    });
-}
-
-/**
- * @return {string} - JSON representation of the message
- */
-function createInitMessage() {
-    return JSON.stringify({
-        kind: "init",
     });
 }
 
