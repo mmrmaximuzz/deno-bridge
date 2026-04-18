@@ -1,8 +1,8 @@
 import { Engine, EngineFullState } from "./game/engine.ts";
-import { ALL_SIDES, Side } from "./game/common.ts";
-import { parseBid } from "./parsing.ts";
-import { Bid } from "./game/bidding.ts";
-import { Deal } from "./game/cards.ts";
+import { ALL_SIDES, nextSide, Side } from "./game/common.ts";
+import { parseBid, parseCard } from "./parsing.ts";
+import { Bid, FinalContract, prettyPrintFinalContract } from "./game/bidding.ts";
+import { Card } from "./game/cards.ts";
 
 type Nickname = string | null; // anonymous if null
 type Client = { conn: WebSocket; nick: Nickname };
@@ -20,6 +20,11 @@ class ConnectionManagerImpl implements ConnectionManager {
         this.clients = { W: null, N: null, E: null, S: null };
         this.engine = engine;
         this.gen = 0;
+    }
+
+    die(msg: string): never {
+        this.broadcastErrorMessage(msg);
+        throw new Error(msg);
     }
 
     createNotification(notification: string): string {
@@ -47,13 +52,14 @@ class ConnectionManagerImpl implements ConnectionManager {
                 },
             });
         } else {
-            throw new Error("not implemented");
+            return this.die("not implemented");
         }
     }
 
-    reportError(err: string, conn?: WebSocket): void {
+    reportError(err: string, conn?: WebSocket): boolean {
         console.error(err);
         conn?.send(this.createError(err));
+        return false;
     }
 
     handleOpen(conn: WebSocket, side: Side): void {
@@ -69,7 +75,7 @@ class ConnectionManagerImpl implements ConnectionManager {
         const nickRepr = (() => {
             const origSender = this.clients[side];
             if (!origSender) {
-                throw new Error("Assertion error: got message from non-connected client");
+                return this.die("Assertion error: got message from non-connected client");
             }
             return origSender.nick ? `(${origSender.nick})` : "";
         })();
@@ -86,69 +92,96 @@ class ConnectionManagerImpl implements ConnectionManager {
         }
     }
 
-    broadcastNotificationMessage(notification: string): void {
+    broadcast(kind: string, message: unknown): void {
         for (const s of ALL_SIDES) {
             const client = this.clients[s];
             if (client) {
                 client.conn.send(JSON.stringify({
-                    kind: "notify",
-                    data: `server: ${notification}`,
+                    kind,
+                    data: message,
                 }));
             }
         }
+    }
+
+    broadcastNotificationMessage(notification: string): void {
+        this.broadcast("notify", `server: ${notification}`);
+    }
+
+    broadcastErrorMessage(notification: string): void {
+        this.broadcast("error", `server error: ${notification}`);
     }
 
     broadcastBidMessage(side: Side, bid: Bid): void {
-        for (const s of ALL_SIDES) {
-            const client = this.clients[s];
-            if (client) {
-                client.conn.send(JSON.stringify({
-                    kind: "engine",
-                    data: {
-                        kind: "auction",
-                        side,
-                        bid,
-                        gen: this.gen,
-                    },
-                }));
-            }
-        }
+        this.broadcast("engine", {
+            kind: "bid",
+            side,
+            bid,
+            gen: this.gen,
+        });
     }
 
-    broadcastNextDealMessage(deal: Deal): void {
-        for (const s of ALL_SIDES) {
-            const client = this.clients[s];
-            if (client) {
-                client.conn.send(JSON.stringify({
-                    kind: "engine",
-                    data: {
-                        kind: "nextdeal",
-                        reveal: deal,
-                    },
-                }));
-            }
-        }
+    broadcastContract(contract: FinalContract): void {
+        this.broadcast("engine", {
+            kind: "contract",
+            contract: prettyPrintFinalContract(contract),
+            leader: nextSide(contract.declarer),
+        });
     }
 
-    handleInitMessage(conn: WebSocket, side: Side, nick: Nickname): void {
+    broadcastNextDealMessage(state: EngineFullState): void {
+        this.broadcast("engine", {
+            kind: "nextdeal",
+            reveal: state.deal,
+            dealer: state.dealer,
+        });
+    }
+
+    broadcastStartPlay(lead: Card, dummy: Side, table: Card[]) {
+        this.broadcast("engine", {
+            kind: "startplay",
+            lead,
+            dummy,
+            table,
+        });
+    }
+
+    broadcastPlayCard(side: Side, card: Card) {
+        this.broadcast("engine", {
+            kind: "playcard",
+            side,
+            card,
+        });
+    }
+
+    broadcastTrick(side: Side, card: Card, winner: Side) {
+        this.broadcast("engine", {
+            kind: "trick",
+            side,
+            card,
+            winner,
+        });
+    }
+
+    handleInitMessage(conn: WebSocket, side: Side, nick: Nickname): boolean {
         if (!this.clients[side]) {
             throw new Error("AssertionError: got init message from non-connected client");
         }
         this.clients[side].nick = nick;
         conn.send(this.createInit(side, this.engine.getFullState(), this.gen));
+        return true;
     }
 
-    handleEngineAuctionMessage(conn: WebSocket, side: Side, data: unknown): void {
+    handleEngineBidMessage(conn: WebSocket, side: Side, data: unknown): boolean {
         const bid = parseBid(data);
         if (!bid) {
-            this.reportError(`failed to parse bid data: ${JSON.stringify(data)}`, conn);
-            return;
+            return this.reportError(`failed to parse bid data: ${JSON.stringify(data)}`, conn);
         }
 
         const response = this.engine.handle({
             side,
             data: {
-                kind: "auction",
+                kind: "bid",
                 bid,
             },
         });
@@ -157,71 +190,116 @@ class ConnectionManagerImpl implements ConnectionManager {
             case "ok":
                 ++this.gen;
                 this.broadcastBidMessage(side, bid);
-                break;
-            case "oknextdeal":
-                // send the last action first
+                return true;
+            case "passout":
+                // send the last bid first
                 ++this.gen;
                 this.broadcastBidMessage(side, bid);
 
                 // notify clients
-                this.broadcastNotificationMessage("game over, click 'Next deal' button");
-                this.broadcastNextDealMessage(this.engine.getFullState().deal);
+                this.broadcastNotificationMessage("passout, for next deal click the button");
+                this.broadcastNextDealMessage(this.engine.getFullState());
 
-                // reset the state
-                this.gen = 0;
+                // passout finishes the game, reset the state
                 this.engine.restart();
-                break;
+                return true;
+            case "attack":
+                // send the last bid
+                ++this.gen;
+                this.broadcastBidMessage(side, bid);
+
+                // notify clients
+                this.broadcastContract(response.contract);
+                return true;
             case "err":
                 conn.send(this.createNotification(`engine: ${response.err}`));
-                return;
+                return true;
+            case "playcard":
+            case "startplay":
+            case "trick":
+            case "done":
+                return this.die("AssertionError: impossible reponse for bid");
+        }
+    }
+
+    handleEngineCardPlay(conn: WebSocket, side: Side, rawCard: unknown): boolean {
+        const card = parseCard(rawCard);
+        if (!card) {
+            return this.reportError(`${side}: bad card: ${JSON.stringify(rawCard)}`, conn);
+        }
+
+        const response = this.engine.handle({
+            side,
+            data: {
+                kind: "cardplay",
+                card,
+            },
+        });
+
+        switch (response.kind) {
+            case "ok":
+            case "attack":
+            case "passout":
+                return this.die(`AssertionError: impossible engine transition: ${response.kind}`);
+            case "err":
+                conn.send(this.createNotification(`engine: ${response.err}`));
+                return true;
+            case "startplay":
+                this.broadcastStartPlay(response.lead, response.dummy, response.table);
+                return true;
+            case "playcard":
+                this.broadcastPlayCard(response.side, response.card);
+                return true;
+            case "trick":
+                this.broadcastTrick(response.side, response.card, response.winner);
+                return true;
+            case "done":
+                this.broadcastTrick(response.side, response.card, response.winner);
+                this.broadcastNextDealMessage(this.engine.getFullState());
+                this.engine.restart();
+                return true;
         }
     }
 
     handleEngineMessage(
         conn: WebSocket,
         side: Side,
-        data: { kind?: unknown; bid?: unknown; nickname?: unknown },
-    ): void {
+        data: { kind?: unknown; bid?: unknown; nickname?: unknown; card?: unknown },
+    ): boolean {
         switch (data.kind) {
-            case "auction":
-                this.handleEngineAuctionMessage(conn, side, data.bid);
-                return;
+            case "bid":
+                return this.handleEngineBidMessage(conn, side, data.bid);
+            case "cardplay":
+                return this.handleEngineCardPlay(conn, side, data.card);
             case "init": {
                 const nick = (typeof data.nickname == "string" && data.nickname)
                     ? data.nickname
                     : null;
-                this.handleInitMessage(conn, side, nick);
-                return;
+                return this.handleInitMessage(conn, side, nick);
             }
             default:
-                this.reportError(`${side}: bad engine message kind: ${data.kind}`, conn);
-                return;
+                return this.reportError(`${side}: bad engine message kind: ${data.kind}`, conn);
         }
     }
-
     handleMessageInternal(
         conn: WebSocket,
         side: Side,
         obj: { kind?: string; data?: unknown },
-    ): void {
+    ): boolean {
         switch (obj.kind) {
             case "chat":
                 if (typeof obj.data != "string") {
-                    this.reportError(`${side}: bad chat data: ${obj.data}`, conn);
-                    return;
+                    return this.reportError(`${side}: bad chat data: ${obj.data}`, conn);
                 }
                 this.broadcastChatMessage(side, obj.data);
-                return;
+                return true;
             case "engine":
                 if (typeof obj.data != "object" || obj.data == null) {
-                    this.reportError(`${side}: bad engine data: ${obj.data}`, conn);
-                    return;
+                    return this.reportError(`${side}: bad engine data: ${obj.data}`, conn);
                 }
-                this.handleEngineMessage(conn, side, obj.data);
-                return;
+                return this.handleEngineMessage(conn, side, obj.data);
             default:
-                this.reportError(`${side}: bad message kind: ${obj.kind}`, conn);
-                return;
+                return this.reportError(`${side}: bad message kind: ${obj.kind}`, conn);
         }
     }
 
@@ -248,7 +326,10 @@ class ConnectionManagerImpl implements ConnectionManager {
             return;
         }
 
-        this.handleMessageInternal(conn, side, rawObject);
+        const res = this.handleMessageInternal(conn, side, rawObject);
+        if (!res) {
+            console.warn(`failed to process message: ${JSON.stringify(data)}`);
+        }
     }
 
     handleClose(side: Side): void {
@@ -263,7 +344,7 @@ class ConnectionManagerImpl implements ConnectionManager {
             );
             // reject the new connection outside of the current event handling
             setTimeout(() => {
-                sock.send(this.createNotification("this invite link is already used"));
+                sock.send(this.createNotification("this invite link is already used, abort"));
                 sock.close();
             });
             return;

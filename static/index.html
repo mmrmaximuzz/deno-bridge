@@ -10,37 +10,37 @@
     <body>
         <div id="page">
             <main class="main" style="grid-area: main">
-                <div style="grid-area: top-player" class="cardholder" id="top-hand"></div>
-                <div style="grid-area: left-player" class="cardholder" id="left-hand"></div>
-                <div style="grid-area: right-player" class="cardholder" id="right-hand"></div>
-                <div style="grid-area: bottom-player" class="cardholder" id="bottom-hand"></div>
+                <div style="grid-area: top-player" class="mono-center" id="top-hand"></div>
+                <div style="grid-area: left-player" class="mono-center" id="left-hand"></div>
+                <div style="grid-area: right-player" class="mono-center" id="right-hand"></div>
+                <div style="grid-area: bottom-player" class="mono-center" id="bottom-hand"></div>
 
                 <div style="grid-area: table" class="table">
                     <div></div>
                     <div></div>
-                    <div id="top-side" class="sidelabel" style="font-weight: bolder"></div>
+                    <div id="top-side" class="mono-center" style="font-weight: bolder"></div>
                     <div></div>
                     <div></div>
                     <div></div>
                     <div></div>
-                    <div id="top-card" class="singlecard"></div>
+                    <div id="top-card" class="mono-center"></div>
                     <div></div>
                     <div></div>
 
-                    <div id="left-side" class="sidelabel" style="font-weight: bolder"></div>
-                    <div id="left-card" class="singlecard"></div>
+                    <div id="left-side" class="mono-center" style="font-weight: bolder"></div>
+                    <div id="left-card" class="mono-center"></div>
                     <div></div>
-                    <div id="right-card" class="singlecard"></div>
-                    <div id="right-side" class="sidelabel" style="font-weight: bolder"></div>
+                    <div id="right-card" class="mono-center"></div>
+                    <div id="right-side" class="mono-center" style="font-weight: bolder"></div>
 
                     <div></div>
                     <div></div>
-                    <div id="bottom-card" class="singlecard"></div>
+                    <div id="bottom-card" class="mono-center"></div>
                     <div></div>
                     <div></div>
                     <div></div>
                     <div></div>
-                    <div id="bottom-side" class="sidelabel" style="font-weight: bolder"></div>
+                    <div id="bottom-side" class="mono-center" style="font-weight: bolder"></div>
                     <div></div>
                     <div></div>
                 </div>
@@ -134,6 +134,11 @@
                                 <th>S</th>
                             </tr>
                         </table>
+                    </div>
+                    <div id="auction-result"></div>
+                    <div id="scores" style="visibility: hidden">
+                        W/E: <span id="we-score">0</span><br>
+                        N/S: <span id="ns-score">0</span>
                     </div>
                 </div>
             </main>

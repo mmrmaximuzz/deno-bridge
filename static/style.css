@@ -13,24 +13,25 @@
         "left-player table right-player auction"
         "bottom-player bottom-player bottom-player auction";
     grid-template-columns: 2fr 2fr 2fr 3fr;
-    grid-auto-rows: 1fr;
-    gap: 5px;
+    grid-auto-rows: 2fr;
+    gap: 3px;
 }
 
 .table {
     display: grid;
-    gap: 3px;
+    gap: 5px;
     grid-template-columns: repeat(5, 1fr);
     border: 1px solid black;
     background-color: lightgreen;
     grid-auto-rows: 1fr;
 }
 
-.cardholder {
+.mono-center {
     display: flex;
     font-family: monospace;
     justify-content: center;
     align-items: center;
+    margin: 1px;
 }
 
 .singlecard {
@@ -38,13 +39,25 @@
     font-family: monospace;
     justify-content: center;
     align-items: center;
+    background-color: white;
+    border: 1px solid black;
+    padding: 1px;
 }
 
-.sidelabel {
+.card-in-hand {
+    margin: 2px;
+}
+
+#auction-result {
     display: flex;
-    font-family: monospace;
+    font-weight: bold;
+    font-size: big;
     justify-content: center;
     align-items: center;
+}
+
+#scores {
+    font-family: monospace;
 }
 
 #messages {

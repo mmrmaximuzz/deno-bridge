@@ -31,6 +31,35 @@ export interface Bidding {
     getHistory(): [Side, Bid[]];
 }
 
+export function prettyPrintFinalContract(contract: FinalContract) {
+    const level = contract.contract.level;
+    const suitSymbol = (() => {
+        switch (contract.contract.denom) {
+            case "C":
+                return "♣";
+            case "D":
+                return "♦";
+            case "H":
+                return "♥";
+            case "S":
+                return "♠";
+            case "NT":
+                return "NT";
+        }
+    })();
+    const statusSymbol = (() => {
+        switch (contract.status) {
+            case "FREE":
+                return "";
+            case "X":
+                return "x";
+            case "XX":
+                return "xx";
+        }
+    })();
+    return `${level}${suitSymbol}${statusSymbol} by ${contract.declarer}`;
+}
+
 type ActiveContract = {
     contract: Contract;
     side: Side;

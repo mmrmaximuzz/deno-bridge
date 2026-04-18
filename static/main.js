@@ -12,17 +12,20 @@
  * @typedef { [Suit, Rank] } Card - playing card
  * @typedef { Record<Side, Card[]> } Deal - full deal
  * @typedef { "NONE" | "NS" | "WE" | "BOTH" } Vulnerability - vulnerability state
+ * @typedef { "bottom" | "left" | "top" | "right" } Position - table positions
  *
  * @typedef {object} App - application data
  * @property {WebSocket} sock - WebSocket connection to the game server
- * @property {[Bid, number][]} pending - pending updates if any
+ * @property {[Side, Bid, number][]} pending - pending updates if any
  * @property {string | null} nickname - the player's nick name
- * @property {Side} [mySide] - current's player table position
- * @property {number} [gen] - current generation of the engine state
+ * @property {Side | null} mySide - current's player table position
+ * @property {boolean} needFlushTable - whether we need to flush table or not
+ * @property {number} gen - current generation of the engine state
  */
 
 /** @type {Suit[]} */
 const ALL_SUITS_ORDERED = ["S", "H", "D", "C"];
+/** @type {Position[]} */
 const ALL_POSITIONS = ["bottom", "left", "top", "right"];
 
 /**
@@ -207,6 +210,23 @@ function parseRank(raw) {
 }
 
 /**
+ * @param {unknown} rawCard - card data from server
+ * @return {Card | null}
+ */
+function parseCard(rawCard) {
+    if (!(rawCard instanceof Array) || rawCard.length != 2) {
+        return null;
+    }
+    const [rawSuit, rawRank] = rawCard;
+    const suit = parseSuit(rawSuit);
+    const rank = parseRank(rawRank);
+    if (suit == null || rank == null) {
+        return null;
+    }
+    return [suit, rank];
+}
+
+/**
  * @param {unknown} rawHand - hand data from server
  * @return {Card[] | null}
  */
@@ -218,16 +238,11 @@ function parseHand(rawHand) {
     /** @type {Card[]} */
     const result = [];
     for (const rawItem of rawHand) {
-        if (!(rawItem instanceof Array) || rawItem.length != 2) {
+        const card = parseCard(rawItem);
+        if (!card) {
             return null;
         }
-        const [rawSuit, rawRank] = rawItem;
-        const suit = parseSuit(rawSuit);
-        const rank = parseRank(rawRank);
-        if (suit == null || rank == null) {
-            return null;
-        }
-        result.push([suit, rank]);
+        result.push(card);
     }
     return result.sort((a, b) => {
         if (a[0] > b[0]) {
@@ -451,6 +466,36 @@ function rankPrettyPrint(rank) {
 }
 
 /**
+ * @param {Side} side - side to find position to
+ * @param {Side} playerSide - the current Player
+ * @return {Position} table position
+ */
+function getRelativePositionForSide(side, playerSide) {
+    // the player is always in the "bottom" position
+    let currSide = playerSide;
+    for (const pos of ALL_POSITIONS) {
+        if (currSide == side) {
+            return pos;
+        }
+        currSide = nextSide(currSide);
+    }
+    throw new Error("unreachable");
+}
+
+/**
+ * @param {Position} [pos] - position to set
+ */
+function setMovePosition(pos) {
+    for (const p of ALL_POSITIONS) {
+        if (p == pos) {
+            assertGetElementById(`${p}-side`).style.border = "1px solid orange";
+        } else {
+            assertGetElementById(`${p}-side`).style.border = "";
+        }
+    }
+}
+
+/**
  * @return {void}
  */
 function resetUI() {
@@ -474,6 +519,14 @@ function resetUI() {
             labelSide.innerText = labelSide.innerText[0]; // remove any suffixes
         }
     }
+
+    // clear the current contract
+    assertGetElementById("auction-result").innerText = "";
+
+    // flush the table and move markers
+    flushTable();
+    resetTrickCount();
+    setMovePosition();
 }
 
 /**
@@ -485,13 +538,147 @@ function removePlayerHand(position) {
 }
 
 /**
+ * @param {string} position - player position to remove card
+ * @param {Card} card - player card to remove
+ * @return {boolean}
+ */
+function removeCardFromPlayerHand(position, card) {
+    const nodes = assertGetElementById(`${position}-hand`).children.item(0)?.childNodes;
+    if (!nodes) {
+        // this hand is hidden for this player
+        return true;
+    }
+    for (const node of nodes) {
+        for (const c of node.childNodes) {
+            if (!(c instanceof HTMLElement)) {
+                continue;
+            }
+            const [_, rawSuit, rawRank] = c.id.split("-");
+            const suit = parseSuit(rawSuit);
+            const rank = parseRank(Number(rawRank));
+            if (!suit || !rank) {
+                printErrorMessage(`AssertionError: bad card id ${c.id} in position ${position}`);
+                return false;
+            }
+            if (card[0] == suit && card[1] == rank) {
+                c.remove();
+                return true;
+            }
+        }
+    }
+    printErrorMessage(`AssertionError: failed to find card ${card} in position ${position}`);
+    return false;
+}
+
+/**
+ * @param {Side} mySide - the client's side
+ * @param {Side} side - player side to remove card
+ * @param {Card} card - player card to remove
+ * @return {string | null} - final table position
+ */
+function tryRemoveCardFromHand(mySide, side, card) {
+    let currSide = mySide;
+    for (const pos of ALL_POSITIONS) {
+        if (currSide == side) {
+            const res = removeCardFromPlayerHand(pos, card);
+            if (!res) {
+                printErrorMessage(`failed to remove card ${card} from ${side}`);
+                return null;
+            }
+            return pos;
+        }
+        currSide = nextSide(currSide);
+    }
+    printErrorMessage(`AssertionError: failed to find pos to delete card: ${mySide}:${side}`);
+    return null;
+}
+
+/**
+ * @param {Side} side
+ */
+function increaseTrickCount(side) {
+    const elem = (() => {
+        switch (side) {
+            case "W":
+            case "E":
+                return assertGetElementById("we-score");
+            case "N":
+            case "S":
+                return assertGetElementById("ns-score");
+            default:
+                throw new Error("unreachable");
+        }
+    })();
+    elem.innerText = `${Number(elem.innerText) + 1}`;
+}
+
+function resetTrickCount() {
+    assertGetElementById("we-score").innerText = "0";
+    assertGetElementById("ns-score").innerText = "0";
+    assertGetElementById("scores").style.visibility = "hidden";
+}
+
+function flushTable() {
+    for (const p of ALL_POSITIONS) {
+        assertGetElementById(`${p}-card`).replaceChildren();
+    }
+}
+
+/**
+ * @param {App} app - application state
+ * @param {string} pos - the table position
+ * @param {Card} card - player card to place to table
+ * @return {void}
+ */
+function placeCardToTable(app, pos, card) {
+    if (app.needFlushTable) {
+        flushTable();
+        app.needFlushTable = false;
+    }
+    const cell = assertGetElementById(`${pos}-card`);
+
+    const cardElem = document.createElement("span");
+    const [suit, rank] = card;
+    const rankSymbol = rankPrettyPrint(rank);
+    const [suitSymbol, suitStyle] = suitPrettyPrint(suit);
+    cardElem.className = suitStyle;
+    cardElem.innerText = `${rankSymbol}${suitSymbol}`;
+
+    const cardHolderElem = document.createElement("span");
+    cardHolderElem.className = "singlecard";
+    cardHolderElem.appendChild(cardElem);
+
+    cell.appendChild(cardHolderElem);
+}
+
+/**
+ * @param {App} app - the application state
+ * @param {Side} side - player side to remove card
+ * @param {Card} card - player card to remove
+ * @return {void}
+ */
+function moveCardFromHandToTable(app, side, card) {
+    if (!app.mySide) {
+        printErrorMessage("app side is not set on moveCardFromHandToTable");
+        return;
+    }
+
+    const pos = tryRemoveCardFromHand(app.mySide, side, card);
+    if (!pos) {
+        printErrorMessage(`AssertionError: failed to remove card ${card} from hand: ${side}`);
+        return;
+    }
+    placeCardToTable(app, pos, card);
+}
+
+/**
  * @param {App} app - application data
  * @param {Suit} suit - card's suit
  * @param {Rank} rank - card's rank
  * @return {void}
  */
 function handleCardClick(app, suit, rank) {
-    console.log(suit, rank, app.sock);
+    app.sock.send(createCardPlayMessage(suit, rank));
 }
 
 /**
@@ -525,11 +712,10 @@ function displayPlayerHand(app, hand, position, makeClickable) {
         suitDiv.innerText = `${suitRepr} `;
         for (const [rank, rankRepr] of template[suit]) {
             const card = document.createElement("span");
-            const empty = document.createElement("span"); // filler to separate cards
+            card.id = `card-${suit}-${rank}`;
+            card.className = "card-in-hand";
             card.innerText = rankRepr;
-            empty.innerHTML = "&nbsp;";
             suitDiv.appendChild(card);
-            suitDiv.appendChild(empty);
             if (makeClickable) {
                 card.onclick = () => {
                     handleCardClick(app, suit, rank);
@@ -602,7 +788,7 @@ function createContractBidMessage(level, denom) {
     return JSON.stringify({
         kind: "engine",
         data: {
-            kind: "auction",
+            kind: "bid",
             bid: { level, denom },
         },
     });
@@ -615,7 +801,7 @@ function createPassMessage() {
     return JSON.stringify({
         kind: "engine",
         data: {
-            kind: "auction",
+            kind: "bid",
             bid: "PASS",
         },
     });
@@ -628,7 +814,7 @@ function createDoubleMessage() {
     return JSON.stringify({
         kind: "engine",
         data: {
-            kind: "auction",
+            kind: "bid",
             bid: "X",
         },
     });
@@ -641,8 +827,23 @@ function createRedoubleMessage() {
     return JSON.stringify({
         kind: "engine",
         data: {
-            kind: "auction",
+            kind: "bid",
             bid: "XX",
+        },
+    });
+}
+
+/**
+ * @param {Suit} suit - card's suit
+ * @param {Rank} rank - card's rank
+ * @return {string} - JSON representation of the message
+ */
+function createCardPlayMessage(suit, rank) {
+    return JSON.stringify({
+        kind: "engine",
+        data: {
+            kind: "cardplay",
+            card: [suit, rank],
         },
     });
 }
@@ -787,29 +988,29 @@ function disableInactiveBids(bid) {
  */
 function labelPlayerSides(mySide, dealer, vuln) {
     let side = mySide;
-    for (const pos of ["bottom", "left", "top", "right"]) {
+    for (const pos of ALL_POSITIONS) {
         const elem = assertGetElementById(`${pos}-side`);
         elem.innerText = side;
 
-        if (side == dealer) {
-            elem.innerText += "*";
-        }
-
         switch (vuln) {
             case "NONE":
+                elem.style.backgroundColor = "";
                 break;
             case "NS":
             case "WE":
                 if (vuln.search(side) == -1) {
+                    elem.style.backgroundColor = "";
                     break;
                 }
                 /* falls through */
             case "BOTH":
-                elem.style.color = "darkred";
+                elem.style.backgroundColor = "darkred";
                 break;
         }
         side = nextSide(side);
     }
+
+    setMovePosition(getRelativePositionForSide(dealer, mySide));
 }
 
 function playStartSound() {
@@ -818,6 +1019,10 @@ function playStartSound() {
 
 function playNotificationSound() {
     new Audio("mixkit-cool-interface-click-tone-2568.wav").play();
+}
+
+function playPopSound() {
+    new Audio("mixkit-long-pop-2358.wav").play();
 }
 
 /**
@@ -849,8 +1054,8 @@ function processInitMessage(app, data) {
     app.mySide = side;
     app.gen = data.gen;
     // apply pending updates if any
-    for (const [pending, gen] of app.pending) {
-        processBidMessage(app, pending, gen);
+    for (const [side, pending, gen] of app.pending) {
+        processBidMessage(app, side, pending, gen);
     }
 
     playStartSound();
@@ -858,14 +1063,15 @@ function processInitMessage(app, data) {
 
 /**
  * @param {App} app - application data
+ * @param {Side} side - bid from this side
  * @param {Bid} bid - input bid
  * @param {number} gen - the message generation
  * @return {void}
  */
-function processBidMessage(app, bid, gen) {
+function processBidMessage(app, side, bid, gen) {
     if (app.gen == undefined) {
         // didn't receive the initial message, delay handling
-        app.pending.push([bid, gen]);
+        app.pending.push([side, bid, gen]);
         return;
     }
     if (app.gen >= gen) {
@@ -874,13 +1080,19 @@ function processBidMessage(app, bid, gen) {
     }
     disableInactiveBids(bid);
     auctionHistoryAdd(bid);
+
+    if (!app.mySide) {
+        throw new Error("unreachable");
+    }
+    setMovePosition(getRelativePositionForSide(nextSide(side), app.mySide));
 }
 
 /**
  * @param {App} app - application data
- * @param {Deal} deal
+ * @param {Side} dealer - original dealer
+ * @param {Deal} deal - the original deal
  */
-function revealFullDeal(app, deal) {
+function revealFullDeal(app, dealer, deal) {
     let side = app.mySide;
     if (!side) {
         throw new Error("unreachable");
@@ -891,20 +1103,47 @@ function revealFullDeal(app, deal) {
         displayPlayerHand(app, deal[side], pos, false);
         side = nextSide(side);
     }
+    if (!app.mySide) {
+        throw new Error("AssertionError");
+    }
+    setMovePosition(getRelativePositionForSide(dealer, app.mySide));
+}
+
+/**
+ * @param {string} contract - contract text representation
+ */
+function displayContract(contract) {
+    assertGetElementById("auction-result").innerText = contract;
+    assertGetElementById("scores").style.visibility = "visible";
 }
 
 /**
  * @param {App} app - application data
- * @param {{ kind?: unknown; bid?: unknown; gen?: unknown; reveal?: unknown  }} data - engine message
+ * @param {{
+       bid?: unknown;
+       card?: unknown;
+       contract?: unknown;
+       dealer?: unknown;
+       dummy?: unknown;
+       gen?: unknown;
+       kind?: unknown;
+       leader?: unknown;
+       lead?: unknown;
+       reveal?: unknown;
+       side?: unknown;
+       table?: unknown;
+       winner?: unknown;
+   }} data - engine message
  * @return {void}
  */
 function processEngineMessage(app, data) {
     switch (data.kind) {
-        case "auction": {
+        case "bid": {
             const bid = parseBid(data.bid);
-            if (!bid) {
+            const side = parseSide(data.side);
+            if (!bid || !side) {
                 printErrorMessage(
-                    `failed to parse bid in engine message: ${JSON.stringify(data.bid)}`,
+                    `failed to parse data in 'engine' message: ${JSON.stringify(data.bid)}`,
                 );
                 return;
             }
@@ -912,18 +1151,100 @@ function processEngineMessage(app, data) {
                 printErrorMessage(`bad generation number in engine message: ${data.gen}`);
                 return;
             }
-            processBidMessage(app, bid, data.gen);
+            processBidMessage(app, side, bid, data.gen);
+            playNotificationSound();
+            break;
+        }
+        case "contract": {
+            const leader = parseSide(data.leader);
+            if (!leader || typeof data.contract != "string" || !app.mySide) {
+                printErrorMessage(`bad 'contract' message: ${JSON.stringify(data)}`);
+                return;
+            }
+            displayContract(data.contract);
+            setMovePosition(getRelativePositionForSide(leader, app.mySide));
+            playPopSound();
+            break;
+        }
+        case "startplay": {
+            const dummy = parseSide(data.dummy);
+            const table = parseHand(data.table);
+            const lead = parseCard(data.lead);
+            if (!dummy || !table || !lead) {
+                printErrorMessage(`bad 'startplay' message: ${JSON.stringify(data)}`);
+                return;
+            }
+            const declarer = nextSide(nextSide(dummy));
+            const leader = nextSide(declarer);
+
+            if (!app.mySide) {
+                printErrorMessage("AssertionError: app not initialized");
+                return;
+            }
+
+            moveCardFromHandToTable(app, leader, lead);
+            setMovePosition(getRelativePositionForSide(dummy, app.mySide));
+
+            if (app.mySide == dummy) {
+                // we are already dummy, nothing new to draw
+                return;
+            }
+
+            // find who is dummy and draw its hand
+            displayPlayerHand(
+                app,
+                table,
+                getRelativePositionForSide(dummy, app.mySide),
+                app.mySide == declarer,
+            );
+            playPopSound();
+            break;
+        }
+        case "playcard": {
+            const side = parseSide(data.side);
+            const card = parseCard(data.card);
+            if (!side || !card) {
+                printErrorMessage(`bad playcard message: ${JSON.stringify(data)}`);
+                return;
+            }
+            if (!app.mySide) {
+                printErrorMessage("AssertionError: no self side on 'playcard'");
+                return;
+            }
+            moveCardFromHandToTable(app, side, card);
+            setMovePosition(getRelativePositionForSide(nextSide(side), app.mySide));
+            playNotificationSound();
+            break;
+        }
+        case "trick": {
+            const side = parseSide(data.side);
+            const card = parseCard(data.card);
+            const winner = parseSide(data.winner);
+            if (!side || !card || !winner) {
+                printErrorMessage(`bad 'trick' message: ${JSON.stringify(data)}`);
+                return;
+            }
+            if (!app.mySide) {
+                printErrorMessage("AssertionError: no self side on 'trick'");
+                return;
+            }
+            moveCardFromHandToTable(app, side, card);
+            app.needFlushTable = true; // need to flush after the last trick
+            setMovePosition(getRelativePositionForSide(winner, app.mySide));
+            increaseTrickCount(winner);
             playNotificationSound();
             break;
         }
         case "nextdeal": {
+            const dealer = parseSide(data.dealer);
             const deal = parseFullDeal(data.reveal);
-            if (!deal) {
-                printErrorMessage(`failed to parse full deal: ${JSON.stringify(data.reveal)}`);
+            if (!deal || !dealer) {
+                printErrorMessage(`failed to parse 'nextdeal': ${JSON.stringify(data)}`);
                 return;
             }
-            revealFullDeal(app, deal);
+            revealFullDeal(app, dealer, deal);
             enableNextButton();
+            playPopSound();
             return;
         }
         default:
@@ -1123,9 +1444,10 @@ function main() {
     const app = {
         sock: connectToGameServer(),
         pending: [],
-        mySide: undefined,
-        gen: undefined,
+        mySide: null,
+        gen: -1,
         nickname,
+        needFlushTable: false,
     };
     registerEvents(app);
 }

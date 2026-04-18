@@ -1,7 +1,7 @@
-export type Side = "W" | "E" | "N" | "S";
+export type Side = "W" | "N" | "E" | "S";
 type Pair = "WE" | "NS";
 
-export const ALL_SIDES: Side[] = ["N", "E", "S", "W"];
+export const ALL_SIDES: Side[] = ["W", "N", "E", "S"];
 
 export function nextSide(side: Side): Side {
     switch (side) {
