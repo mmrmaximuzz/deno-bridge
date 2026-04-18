@@ -83,3 +83,39 @@ export function unbiasedRandRange(limit: number): number {
 export function getRandomSide(): Side {
     return ALL_SIDES[unbiasedRandRange(ALL_SIDES.length)];
 }
+
+export function allDifferent<T>(xs: T[], comparator?: (a: T, b: T) => number): boolean {
+    xs.sort();
+    for (let i = 0; i < xs.length - 1; ++i) {
+        if (comparator) {
+            if (comparator(xs[i], xs[i + 1]) == 0) {
+                return false;
+            }
+        } else {
+            if (xs[i] == xs[i + 1]) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+export function compare2Tuples<T, V>(a: [T, V], b: [T, V]): number {
+    if (a[0] > b[0]) {
+        return 1;
+    }
+
+    if (a[0] < b[0]) {
+        return -1;
+    }
+
+    if (a[1] > b[1]) {
+        return 1;
+    }
+
+    if (a[1] < b[1]) {
+        return -1;
+    }
+
+    return 0;
+}

@@ -1,9 +1,10 @@
-import { Side, unbiasedRandRange } from "./common.ts";
+import { ALL_SIDES, allDifferent, compare2Tuples, Side, unbiasedRandRange } from "./common.ts";
 
 export type Suit = "C" | "D" | "H" | "S";
 export type Rank = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 export type Card = [Suit, Rank];
 export type Deal = Record<Side, Card[]>;
+export type Trick = Record<Side, Card>;
 
 export const ALL_SUITS: Suit[] = ["S", "H", "D", "C"];
 export const ALL_RANKS: Rank[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -28,4 +29,26 @@ export function getRandomDeal(): Deal {
         E: cards.slice(26, 39),
         S: cards.slice(39, 52),
     };
+}
+
+export function processTrickNotrump(trick: Trick, lead: Suit): Side {
+    const suitCards: [Rank, Side][] = [];
+
+    // sanity check
+    if (!allDifferent([trick.W, trick.N, trick.E, trick.S], compare2Tuples)) {
+        throw new Error(`AssertionError: bad trick ${JSON.stringify(trick)}`);
+    }
+
+    for (const side of ALL_SIDES) {
+        const [suit, rank] = trick[side];
+        if (suit == lead) {
+            suitCards.push([rank, side]);
+        }
+    }
+
+    if (!suitCards.length) {
+        throw new Error(`AssertionError: no lead ${lead} in ${JSON.stringify(trick)}`);
+    }
+
+    return suitCards.reduce((max, curr) => curr[0] > max[0] ? curr : max)[1];
 }

@@ -1,5 +1,7 @@
-import { assert, assertEquals, assertThrows } from "@std/assert";
+import { assert, assertEquals, assertFalse, assertThrows } from "@std/assert";
 import {
+    allDifferent,
+    compare2Tuples,
     getPair,
     getPartner,
     nextSide,
@@ -83,4 +85,17 @@ Deno.test("side casts", () => {
         Error,
         "assertion error",
     );
+});
+
+Deno.test("allDifferent utility", () => {
+    assert(allDifferent([1]));
+    assert(allDifferent([1, 2]));
+    assertFalse(allDifferent([1, 1]));
+    assertFalse(allDifferent([1, 2, 1]));
+
+    assert(allDifferent([["x", 1], ["z", 1], ["y", 2]] as [string, number][], compare2Tuples));
+    assert(allDifferent([["x", 1], ["z", 1], ["x", 2]] as [string, number][], compare2Tuples));
+    assert(allDifferent([["x", 1], ["z", 1], ["y", 1]] as [string, number][], compare2Tuples));
+    assertFalse(allDifferent([["x", 1], ["z", 1], ["x", 1]] as [string, number][], compare2Tuples));
+    assertFalse(allDifferent([["x", 2], ["z", 1], ["x", 2]] as [string, number][], compare2Tuples));
 });
