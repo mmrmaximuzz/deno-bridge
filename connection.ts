@@ -4,17 +4,20 @@ import { parseBid } from "./parsing.ts";
 import { Bid } from "./game/bidding.ts";
 import { Deal } from "./game/cards.ts";
 
+type Nickname = string | null; // anonymous if null
+type Client = { conn: WebSocket; nick: Nickname };
+
 export interface ConnectionManager {
     register(side: Side, sock: WebSocket): void;
 }
 
 class ConnectionManagerImpl implements ConnectionManager {
-    conns: Record<Side, WebSocket | null>;
+    clients: Record<Side, Client | null>;
     engine: Engine;
     gen: number;
 
     constructor(engine: Engine) {
-        this.conns = { W: null, N: null, E: null, S: null };
+        this.clients = { W: null, N: null, E: null, S: null };
         this.engine = engine;
         this.gen = 0;
     }
@@ -54,7 +57,7 @@ class ConnectionManagerImpl implements ConnectionManager {
     }
 
     handleOpen(conn: WebSocket, side: Side): void {
-        this.conns[side] = conn;
+        this.clients[side] = { conn, nick: null };
     }
 
     broadcastChatMessage(side: Side, text: string): void {
@@ -63,55 +66,75 @@ class ConnectionManagerImpl implements ConnectionManager {
             return;
         }
 
+        const nickRepr = (() => {
+            const origSender = this.clients[side];
+            if (!origSender) {
+                throw new Error("Assertion error: got message from non-connected client");
+            }
+            return origSender.nick ? `(${origSender.nick})` : "";
+        })();
+
         for (const s of ALL_SIDES) {
-            const line = s == side ? `${side}(you): ${text}` : `${side}: ${text}`;
-            const conn = this.conns[s];
-            conn?.send(JSON.stringify({
-                kind: "chat",
-                data: line,
-            }));
+            const client = this.clients[s];
+            if (client) {
+                const line = s == side ? `[you]: ${text}` : `${side}${nickRepr}: ${text}`;
+                client.conn.send(JSON.stringify({
+                    kind: "chat",
+                    data: line,
+                }));
+            }
         }
     }
 
     broadcastNotificationMessage(notification: string): void {
         for (const s of ALL_SIDES) {
-            const conn = this.conns[s];
-            conn?.send(JSON.stringify({
-                kind: "notify",
-                data: `server: ${notification}`,
-            }));
+            const client = this.clients[s];
+            if (client) {
+                client.conn.send(JSON.stringify({
+                    kind: "notify",
+                    data: `server: ${notification}`,
+                }));
+            }
         }
     }
 
     broadcastBidMessage(side: Side, bid: Bid): void {
         for (const s of ALL_SIDES) {
-            const conn = this.conns[s];
-            conn?.send(JSON.stringify({
-                kind: "engine",
-                data: {
-                    kind: "auction",
-                    side,
-                    bid,
-                    gen: this.gen,
-                },
-            }));
+            const client = this.clients[s];
+            if (client) {
+                client.conn.send(JSON.stringify({
+                    kind: "engine",
+                    data: {
+                        kind: "auction",
+                        side,
+                        bid,
+                        gen: this.gen,
+                    },
+                }));
+            }
         }
     }
 
     broadcastNextDealMessage(deal: Deal): void {
         for (const s of ALL_SIDES) {
-            const conn = this.conns[s];
-            conn?.send(JSON.stringify({
-                kind: "engine",
-                data: {
-                    kind: "nextdeal",
-                    reveal: deal,
-                },
-            }));
+            const client = this.clients[s];
+            if (client) {
+                client.conn.send(JSON.stringify({
+                    kind: "engine",
+                    data: {
+                        kind: "nextdeal",
+                        reveal: deal,
+                    },
+                }));
+            }
         }
     }
 
-    handleInitMessage(conn: WebSocket, side: Side): void {
+    handleInitMessage(conn: WebSocket, side: Side, nick: Nickname): void {
+        if (!this.clients[side]) {
+            throw new Error("AssertionError: got init message from non-connected client");
+        }
+        this.clients[side].nick = nick;
         conn.send(this.createInit(side, this.engine.getFullState(), this.gen));
     }
 
@@ -157,15 +180,19 @@ class ConnectionManagerImpl implements ConnectionManager {
     handleEngineMessage(
         conn: WebSocket,
         side: Side,
-        data: { kind?: unknown; bid?: unknown },
+        data: { kind?: unknown; bid?: unknown; nickname?: unknown },
     ): void {
         switch (data.kind) {
             case "auction":
                 this.handleEngineAuctionMessage(conn, side, data.bid);
                 return;
-            case "init":
-                this.handleInitMessage(conn, side);
+            case "init": {
+                const nick = (typeof data.nickname == "string" && data.nickname)
+                    ? data.nickname
+                    : null;
+                this.handleInitMessage(conn, side, nick);
                 return;
+            }
             default:
                 this.reportError(`${side}: bad engine message kind: ${data.kind}`, conn);
                 return;
@@ -225,13 +252,13 @@ class ConnectionManagerImpl implements ConnectionManager {
     }
 
     handleClose(side: Side): void {
-        this.conns[side] = null;
+        this.clients[side] = null;
     }
 
     register(side: Side, sock: WebSocket): void {
-        if (this.conns[side]) {
+        if (this.clients[side]) {
             // warn the connected user
-            this.conns[side].send(
+            this.clients[side].conn.send(
                 this.createNotification("someone tried to reuse your invite link"),
             );
             // reject the new connection outside of the current event handling

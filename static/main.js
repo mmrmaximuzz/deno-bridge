@@ -16,6 +16,7 @@
  * @typedef {object} App - application data
  * @property {WebSocket} sock - WebSocket connection to the game server
  * @property {[Bid, number][]} pending - pending updates if any
+ * @property {string | null} nickname - the player's nick name
  * @property {Side} [mySide] - current's player table position
  * @property {number} [gen] - current generation of the engine state
  */
@@ -625,13 +626,15 @@ function createRedoubleMessage() {
 }
 
 /**
+ * @param {App} app - application data
  * @return {string} - JSON representation of the message
  */
-function createInitMessage() {
+function createInitMessage(app) {
     return JSON.stringify({
         kind: "engine",
         data: {
             kind: "init",
+            nickname: app.nickname,
         },
     });
 }
@@ -1030,7 +1033,7 @@ function handleServerMessage(app, event) {
 function handleSocketConnect(app) {
     // schedule initialization event immediately after handling open
     setTimeout(() => {
-        app.sock.send(createInitMessage());
+        app.sock.send(createInitMessage(app));
     });
 }
 
@@ -1041,7 +1044,7 @@ function handleSocketConnect(app) {
  */
 function handleNextClick(app, button) {
     resetUI();
-    app.sock.send(createInitMessage());
+    app.sock.send(createInitMessage(app));
     button.disabled = true;
 }
 
@@ -1103,11 +1106,13 @@ function registerEvents(app) {
 }
 
 function main() {
+    const nickname = prompt("Your nickname (for chat only)");
     const app = {
         sock: connectToGameServer(),
         pending: [],
         mySide: undefined,
         gen: undefined,
+        nickname,
     };
     registerEvents(app);
 }
