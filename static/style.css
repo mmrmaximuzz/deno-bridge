@@ -1,7 +1,6 @@
 .page {
     display: grid;
     grid-template-areas:
-        "header"
         "main"
         "chat";
     gap: 10px;
