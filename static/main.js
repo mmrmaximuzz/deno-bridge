@@ -792,6 +792,14 @@ function labelPlayerSides(mySide, dealer, vuln) {
     }
 }
 
+function playStartSound() {
+    new Audio("mixkit-software-interface-start-2574.wav").play();
+}
+
+function playNotificationSound() {
+    new Audio("mixkit-cool-interface-click-tone-2568.wav").play();
+}
+
 /**
  * @param {App} app - application data
  * @param {{ side?: unknown; state?: unknown; gen?: unknown }} data - current engine state
@@ -824,6 +832,8 @@ function processInitMessage(app, data) {
     for (const [pending, gen] of app.pending) {
         processBidMessage(app, pending, gen);
     }
+
+    playStartSound();
 }
 
 /**
@@ -883,6 +893,7 @@ function processEngineMessage(app, data) {
                 return;
             }
             processBidMessage(app, bid, data.gen);
+            playNotificationSound();
             break;
         }
         case "nextdeal": {
@@ -895,7 +906,6 @@ function processEngineMessage(app, data) {
             enableNextButton();
             return;
         }
-
         default:
             printErrorMessage(`bad engine message kind: ${data.kind}`);
             return;
