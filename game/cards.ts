@@ -1,13 +1,13 @@
 import { ALL_SIDES, allDifferent, compare2Tuples, Side, unbiasedRandRange } from "./common.ts";
 
 export type Suit = "C" | "D" | "H" | "S";
-export type Rank = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+export type Rank = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14;
 export type Card = [Suit, Rank];
 export type Deal = Record<Side, Card[]>;
 export type Trick = Record<Side, Card>;
 
 export const ALL_SUITS: Suit[] = ["S", "H", "D", "C"];
-export const ALL_RANKS: Rank[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+export const ALL_RANKS: Rank[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 
 export function getRandomDeal(): Deal {
     const cards: Card[] = [];

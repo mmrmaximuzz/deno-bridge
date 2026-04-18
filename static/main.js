@@ -8,7 +8,7 @@
  * @typedef { "PASS" | "X" | "XX" | Contract } Bid - auction bid
  * @typedef { Bid[] } AuctionHistory - history of bids
  * @typedef { "C" | "D" | "H" | "S" } Suit - card suit
- * @typedef { 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 } Rank - card suit
+ * @typedef { 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 } Rank - card suit
  * @typedef { [Suit, Rank] } Card - playing card
  * @typedef { Record<Side, Card[]> } Deal - full deal
  * @typedef { "NONE" | "NS" | "WE" | "BOTH" } Vulnerability - vulnerability state
@@ -187,8 +187,6 @@ function parseSuit(raw) {
  */
 function parseRank(raw) {
     switch (raw) {
-        case 0:
-        case 1:
         case 2:
         case 3:
         case 4:
@@ -200,6 +198,8 @@ function parseRank(raw) {
         case 10:
         case 11:
         case 12:
+        case 13:
+        case 14:
             return raw;
         default:
             return null;
@@ -351,7 +351,7 @@ function bidPrettyText(bid) {
 }
 
 /**
- *  @return {HTMLTableElement}
+ * @return {HTMLTableElement}
  */
 function assertGetAuctionHistory() {
     const history = assertGetElementById("auction-history");
@@ -419,31 +419,31 @@ function auctionHistoryAdd(bid) {
  */
 function rankPrettyPrint(rank) {
     switch (rank) {
-        case 0:
-            return "2";
-        case 1:
-            return "3";
         case 2:
-            return "4";
+            return "2";
         case 3:
-            return "5";
+            return "3";
         case 4:
-            return "6";
+            return "4";
         case 5:
-            return "7";
+            return "5";
         case 6:
-            return "8";
+            return "6";
         case 7:
-            return "9";
+            return "7";
         case 8:
-            return "t";
+            return "8";
         case 9:
-            return "J";
+            return "9";
         case 10:
-            return "Q";
+            return "t";
         case 11:
-            return "K";
+            return "J";
         case 12:
+            return "Q";
+        case 13:
+            return "K";
+        case 14:
             return "A";
         default:
             throw new Error("unreachable");
@@ -475,8 +475,8 @@ function resetUI() {
         }
     }
 }
-/**
 
+/**
  * @param {string} position - player position to erase
  * @return {void}
  */
@@ -485,11 +485,23 @@ function removePlayerHand(position) {
 }
 
 /**
- * @param {[Suit, Rank][]} hand - player hand to display
- * @param {string} position - player position to display
+ * @param {App} app - application data
+ * @param {Suit} suit - card's suit
+ * @param {Rank} rank - card's rank
  * @return {void}
  */
-function displayPlayerHand(hand, position) {
+function handleCardClick(app, suit, rank) {
+    console.log(suit, rank, app.sock);
+}
+
+/**
+ * @param {App} app - application data
+ * @param {[Suit, Rank][]} hand - player hand to display
+ * @param {string} position - player position to display
+ * @param {boolean} [makeClickable] - whether to make cards clickable or not
+ * @return {void}
+ */
+function displayPlayerHand(app, hand, position, makeClickable) {
     const bHandElem = assertGetElementById(`${position}-hand`);
 
     /** @type {Record<Suit, [Rank, string][]>} */
@@ -510,9 +522,19 @@ function displayPlayerHand(hand, position) {
         const [suitRepr, suitStyle] = suitPrettyPrint(suit);
         const suitDiv = document.createElement("div");
         suitDiv.className = suitStyle;
-        suitDiv.innerText = suitRepr;
-        for (const [_, rankRepr] of template[suit]) {
-            suitDiv.innerText += ` ${rankRepr}`;
+        suitDiv.innerText = `${suitRepr} `;
+        for (const [rank, rankRepr] of template[suit]) {
+            const card = document.createElement("span");
+            const empty = document.createElement("span"); // filler to separate cards
+            card.innerText = rankRepr;
+            empty.innerHTML = "&nbsp;";
+            suitDiv.appendChild(card);
+            suitDiv.appendChild(empty);
+            if (makeClickable) {
+                card.onclick = () => {
+                    handleCardClick(app, suit, rank);
+                };
+            }
         }
         handDiv.appendChild(suitDiv);
     }
@@ -520,11 +542,12 @@ function displayPlayerHand(hand, position) {
 }
 
 /**
+ * @param {App} app - application data
  * @param {Side} side - the player's side
  * @param {{ phase?: unknown; bidHistory?: unknown; deal?: unknown; vuln?: unknown }} raw - raw data
  * @return {boolean}
  */
-function handleInitialState(side, raw) {
+function handleInitialState(app, side, raw) {
     if (!(raw.bidHistory instanceof Array) || raw.bidHistory.length != 2) {
         printErrorMessage(`init state: bad bid history: ${JSON.stringify(raw.bidHistory)}`);
         return false;
@@ -541,7 +564,7 @@ function handleInitialState(side, raw) {
     }
 
     labelPlayerSides(side, dealer, vuln);
-    displayPlayerHand(cards, "bottom");
+    displayPlayerHand(app, cards, "bottom", true);
     auctionHistorySetDealer(dealer);
 
     let lastContract = null;
@@ -573,7 +596,6 @@ function connectToGameServer() {
 /**
  * @param {number} level - contract level
  * @param {string} denom - contract denomination (suit or NT)
- *
  * @return {string} - JSON representation of the message
  */
 function createContractBidMessage(level, denom) {
@@ -642,7 +664,6 @@ function createInitMessage(app) {
 /**
  * Create text message for the chat.
  * @param {string} text - text message
- *
  * @return {string} - JSON representation of the message
  */
 function createTextMessage(text) {
@@ -686,7 +707,6 @@ function handleBidClick(elem, app) {
 /**
  * @param {string} message - message to print
  * @param {string} styleName - additional style name for the message
- *
  * @return {void}
  */
 function printMessage(message, styleName) {
@@ -703,7 +723,6 @@ function printMessage(message, styleName) {
 
 /**
  * @param {string} message - error message to print
- *
  * @return {void}
  */
 function printErrorMessage(message) {
@@ -712,7 +731,6 @@ function printErrorMessage(message) {
 
 /**
  * @param {string} message - error message to print
- *
  * @return {void}
  */
 function printNotificationMessage(message) {
@@ -721,7 +739,6 @@ function printNotificationMessage(message) {
 
 /**
  * @param {string} message - error message to print
- *
  * @return {void}
  */
 function printChatMessage(message) {
@@ -823,7 +840,7 @@ function processInitMessage(app, data) {
         printErrorMessage(`bad initialization state: ${JSON.stringify(data.state)}`);
         return;
     }
-    const done = handleInitialState(side, data.state);
+    const done = handleInitialState(app, side, data.state);
     if (!done) {
         printErrorMessage(`failed to handle init state: ${JSON.stringify(data.state)}`);
         return;
@@ -871,7 +888,7 @@ function revealFullDeal(app, deal) {
 
     for (const pos of ALL_POSITIONS) {
         removePlayerHand(pos);
-        displayPlayerHand(deal[side], pos);
+        displayPlayerHand(app, deal[side], pos, false);
         side = nextSide(side);
     }
 }
@@ -918,7 +935,6 @@ function processEngineMessage(app, data) {
 /**
  * @param {App} app - application data
  * @param {{ kind?: string; data?: unknown }} message - application data
- *
  * @return {void}
  */
 function processMessage(app, message) {
@@ -970,7 +986,6 @@ function processMessage(app, message) {
 
 /**
  * @param {App} app - application data
- *
  * @return {void}
  */
 function handleSubmit(app) {
@@ -993,7 +1008,6 @@ function handleSubmit(app) {
 /**
  * @param {App} app - application data
  * @param {MessageEvent} event - application data
- *
  * @return {void}
  */
 function handleServerMessage(app, event) {
@@ -1074,7 +1088,6 @@ function mapBidElems(f) {
 
 /**
  * @param {App} app - application data
- *
  * @return {void}
  */
 function registerEvents(app) {
