@@ -76,6 +76,9 @@ function handler(req: Request, app: App): Response | Promise<Response> {
     const accessMatch = ACCESS_ROUTE.exec(req.url);
     const client = verifyTokens(accessMatch, app.accessToken, app.playerTokens);
     if (!client) {
+        if (new URL(req.url).pathname != "/favicon.ico") {
+            console.warn("rejected bad request", req);
+        }
         return new Response("400 Bad Request", { status: 400 });
     }
 
@@ -100,14 +103,6 @@ function main() {
         "W": crypto.randomUUID(),
     };
 
-    // dump the invite URLs to the console
-    for (const side of ALL_SIDES) {
-        const playerToken = playerTokens[side];
-        const url =
-            `https://${settings.hostname}:${settings.port}/${accessToken}/${playerToken}/static/index.html`;
-        console.log(`${side} - ${url}`);
-    }
-
     const engine = createEngine();
     const connManager = createConnectionManager(engine);
 
@@ -128,6 +123,14 @@ function main() {
         },
         (req) => handler(req, app),
     );
+
+    // dump the invite URLs to the console
+    for (const side of ALL_SIDES) {
+        const playerToken = playerTokens[side];
+        const url =
+            `https://${settings.hostname}:${settings.port}/${accessToken}/${playerToken}/static/index.html`;
+        console.log(`${side} - ${url}`);
+    }
 }
 
 main();
