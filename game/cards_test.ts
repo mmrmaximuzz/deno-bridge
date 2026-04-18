@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert/equals";
-import { Card, getRandomDeal, processTrickNotrump } from "./cards.ts";
+import { Card, getRandomDeal, processTrick } from "./cards.ts";
 import { assertNotEquals } from "@std/assert/not-equals";
 import { assertThrows } from "@std/assert/throws";
 
@@ -23,7 +23,7 @@ Deno.test("random deal", () => {
 
 Deno.test("notrump tricks (all in suit)", () => {
     assertEquals(
-        processTrickNotrump({
+        processTrick({
             W: ["C", 0],
             N: ["C", 10],
             E: ["C", 12],
@@ -35,7 +35,7 @@ Deno.test("notrump tricks (all in suit)", () => {
 
 Deno.test("notrump tricks (with discard)", () => {
     assertEquals(
-        processTrickNotrump({
+        processTrick({
             W: ["C", 10],
             N: ["C", 11],
             E: ["C", 3],
@@ -47,7 +47,7 @@ Deno.test("notrump tricks (with discard)", () => {
 
 Deno.test("notrump tricks (all discard)", () => {
     assertEquals(
-        processTrickNotrump({
+        processTrick({
             W: ["D", 3],
             N: ["C", 11],
             E: ["S", 0],
@@ -60,7 +60,7 @@ Deno.test("notrump tricks (all discard)", () => {
 Deno.test("notrump tricks (bad tricks)", () => {
     assertThrows(
         () => {
-            processTrickNotrump({
+            processTrick({
                 W: ["D", 9],
                 N: ["D", 8],
                 E: ["H", 12],
@@ -73,12 +73,111 @@ Deno.test("notrump tricks (bad tricks)", () => {
 
     assertThrows(
         () => {
-            processTrickNotrump({
+            processTrick({
                 W: ["D", 9],
                 N: ["D", 8],
                 E: ["H", 12],
                 S: ["S", 9],
             }, "C");
+        },
+        Error,
+        "AssertionError",
+    );
+});
+
+Deno.test("trump tricks (no trump involved)", () => {
+    assertEquals(
+        processTrick(
+            {
+                W: ["C", 0],
+                N: ["C", 10],
+                E: ["C", 12],
+                S: ["C", 3],
+            },
+            "C",
+            "S",
+        ),
+        "E",
+    );
+});
+
+Deno.test("trump tricks (no trump/with discard)", () => {
+    assertEquals(
+        processTrick(
+            {
+                W: ["C", 10],
+                N: ["C", 11],
+                E: ["C", 3],
+                S: ["H", 12],
+            },
+            "C",
+            "S",
+        ),
+        "N",
+    );
+});
+
+Deno.test("trump tricks (ruff)", () => {
+    assertEquals(
+        processTrick(
+            {
+                W: ["D", 0],
+                N: ["C", 11],
+                E: ["S", 2],
+                S: ["S", 12],
+            },
+            "S",
+            "D",
+        ),
+        "W",
+    );
+});
+
+Deno.test("trump tricks (ruff + overruff)", () => {
+    assertEquals(
+        processTrick(
+            {
+                W: ["D", 0],
+                N: ["D", 1],
+                E: ["S", 2],
+                S: ["S", 12],
+            },
+            "S",
+            "D",
+        ),
+        "N",
+    );
+});
+
+Deno.test("trump tricks (trump suit)", () => {
+    assertEquals(
+        processTrick(
+            {
+                W: ["D", 0],
+                N: ["D", 1],
+                E: ["S", 2],
+                S: ["S", 12],
+            },
+            "D",
+            "D",
+        ),
+        "N",
+    );
+});
+
+Deno.test("trump tricks (no lead suit)", () => {
+    assertThrows(
+        () => {
+            processTrick(
+                {
+                    W: ["D", 9],
+                    N: ["D", 8],
+                    E: ["H", 12],
+                    S: ["S", 9],
+                },
+                "C",
+                "D",
+            );
         },
         Error,
         "AssertionError",

@@ -31,8 +31,9 @@ export function getRandomDeal(): Deal {
     };
 }
 
-export function processTrickNotrump(trick: Trick, lead: Suit): Side {
+export function processTrick(trick: Trick, lead: Suit, trump?: Suit): Side {
     const suitCards: [Rank, Side][] = [];
+    const trumpCards: [Rank, Side][] = [];
 
     // sanity check
     if (!allDifferent([trick.W, trick.N, trick.E, trick.S], compare2Tuples)) {
@@ -43,6 +44,8 @@ export function processTrickNotrump(trick: Trick, lead: Suit): Side {
         const [suit, rank] = trick[side];
         if (suit == lead) {
             suitCards.push([rank, side]);
+        } else if (suit == trump) {
+            trumpCards.push([rank, side]);
         }
     }
 
@@ -50,5 +53,7 @@ export function processTrickNotrump(trick: Trick, lead: Suit): Side {
         throw new Error(`AssertionError: no lead ${lead} in ${JSON.stringify(trick)}`);
     }
 
-    return suitCards.reduce((max, curr) => curr[0] > max[0] ? curr : max)[1];
+    return (trumpCards.length ? trumpCards : suitCards).reduce((max, curr) =>
+        curr[0] > max[0] ? curr : max
+    )[1];
 }
