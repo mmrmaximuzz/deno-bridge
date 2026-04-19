@@ -167,7 +167,7 @@ class EngineImpl implements Engine {
                     const dummy = nextSide(side);
                     return this.startPlay(card, dummy, this.state.deal[dummy]);
                 } else if (res.kind == "error") {
-                    return this.err(`engine: ${res.err}`);
+                    return this.err(res.err);
                 } else {
                     throw new Error(
                         `AssertionError: impossible state: opening lead on ${res.kind}`,
@@ -188,7 +188,7 @@ class EngineImpl implements Engine {
                 } else if (res.kind == "done") {
                     return this.done(res.lastTurn, card, res.winner);
                 } else if (res.kind == "error") {
-                    return this.err(`engine: ${res.err}`);
+                    return this.err(res.err);
                 }
             }
         }
