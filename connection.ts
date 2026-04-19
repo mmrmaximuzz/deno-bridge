@@ -134,6 +134,7 @@ class ConnectionManagerImpl implements ConnectionManager {
             kind: "nextdeal",
             reveal: state.deal,
             dealer: state.dealer,
+            lead: state.lead,
         });
     }
 

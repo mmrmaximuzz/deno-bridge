@@ -24,6 +24,7 @@ export type EngineFullState = {
     vuln: Vulnerability;
     deal: Deal;
     dealer: Side;
+    lead: [Side, Card] | null;
 };
 export interface Engine {
     handle(req: EngineRequest): EngineResponse;
@@ -38,6 +39,7 @@ type EngineState = {
     play: CardPlay | null;
     vuln: Vulnerability;
     dealer: Side;
+    lead: [Side, Card] | null;
 };
 class EngineImpl implements Engine {
     state: EngineState;
@@ -51,6 +53,7 @@ class EngineImpl implements Engine {
             vuln: getRandomVulnerability(),
             play: null,
             dealer,
+            lead: null,
         };
     }
 
@@ -159,6 +162,7 @@ class EngineImpl implements Engine {
                 const res = this.state.play.handle(side, card);
                 if (res.kind == "next") {
                     // if attack was correct, switch state and publish dummy's hand
+                    this.state.lead = [side, card]; // save the opening lead
                     this.state.phase = "play";
                     const dummy = nextSide(side);
                     return this.startPlay(card, dummy, this.state.deal[dummy]);
@@ -207,6 +211,7 @@ class EngineImpl implements Engine {
             bidHistory: this.state.bidding.getHistory(),
             vuln: this.state.vuln,
             dealer: this.state.dealer,
+            lead: this.state.lead,
         };
     }
 }

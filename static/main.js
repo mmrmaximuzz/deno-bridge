@@ -227,6 +227,23 @@ function parseCard(rawCard) {
 }
 
 /**
+ * @param {unknown} rawLead - lead data from server
+ * @return {[Side, Card] | null}
+ */
+function parseLead(rawLead) {
+    if (!(rawLead instanceof Array) || rawLead.length != 2) {
+        return null;
+    }
+    const [rawSide, rawCard] = rawLead;
+    const side = parseSide(rawSide);
+    const card = parseCard(rawCard);
+    if (!side || !card) {
+        return null;
+    }
+    return [side, card];
+}
+
+/**
  * @param {unknown} rawHand - hand data from server
  * @return {Card[] | null}
  */
@@ -1091,8 +1108,9 @@ function processBidMessage(app, side, bid, gen) {
  * @param {App} app - application data
  * @param {Side} dealer - original dealer
  * @param {Deal} deal - the original deal
+ * @param {[Side, Card] | undefined} lead - the opening lead
  */
-function revealFullDeal(app, dealer, deal) {
+function revealFullDeal(app, dealer, deal, lead) {
     let side = app.mySide;
     if (!side) {
         throw new Error("unreachable");
@@ -1106,6 +1124,13 @@ function revealFullDeal(app, dealer, deal) {
     if (!app.mySide) {
         throw new Error("AssertionError");
     }
+
+    // display the opening lead if present
+    if (lead) {
+        const [leader, openingLead] = lead;
+        moveCardFromHandToTable(app, leader, openingLead);
+    }
+    // display the original dealer
     setMovePosition(getRelativePositionForSide(dealer, app.mySide));
 }
 
@@ -1238,13 +1263,17 @@ function processEngineMessage(app, data) {
         case "nextdeal": {
             const dealer = parseSide(data.dealer);
             const deal = parseFullDeal(data.reveal);
-            if (!deal || !dealer) {
+            const lead = data.lead != null ? parseLead(data.lead) : undefined;
+            if (!deal || !dealer || lead === null) {
                 printErrorMessage(`failed to parse 'nextdeal': ${JSON.stringify(data)}`);
                 return;
             }
-            revealFullDeal(app, dealer, deal);
-            enableNextButton();
-            playPopSound();
+            setTimeout(() => {
+                // give some time enough to view the last trick
+                revealFullDeal(app, dealer, deal, lead);
+                enableNextButton();
+                playPopSound();
+            }, 3000);
             return;
         }
         default:
