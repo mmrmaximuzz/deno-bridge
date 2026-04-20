@@ -6,7 +6,7 @@ import { ConnectionManager, createConnectionManager } from "./connection.ts";
 
 import settings from "./settings.json" with { type: "json" };
 
-type Tokens = Record<Side, string>;
+type Tokens = Record<Side, string | null>;
 type Table = {
     name: string;
     accessToken: string;
@@ -75,7 +75,7 @@ function parseUrl(url: string): [string, string] | null {
 function matchesTable(access: string, player: string, table: Table): Side | null {
     if (access == table.accessToken) {
         for (const side of ALL_SIDES) {
-            if (player == table.playerTokens[side]) {
+            if (player === table.playerTokens[side]) {
                 return side;
             }
         }
@@ -105,24 +105,40 @@ function handler(req: Request, app: App): Response | Promise<Response> {
     return new Response("404 Not Found", { status: 404 });
 }
 
-function createTable(name: string): Table {
+function createTable(name: string, tweaks?: { biddingOnly: boolean }): Table {
+    const accessToken = crypto.randomUUID();
+    const playerTokens: Tokens = (() => {
+        if (tweaks && tweaks.biddingOnly) {
+            return {
+                "N": crypto.randomUUID(),
+                "S": crypto.randomUUID(),
+                "W": null,
+                "E": null,
+            };
+        } else {
+            return {
+                "N": crypto.randomUUID(),
+                "E": crypto.randomUUID(),
+                "S": crypto.randomUUID(),
+                "W": crypto.randomUUID(),
+            };
+        }
+    })();
+
     return {
         name,
-        accessToken: crypto.randomUUID(),
-        playerTokens: {
-            "N": crypto.randomUUID(),
-            "E": crypto.randomUUID(),
-            "S": crypto.randomUUID(),
-            "W": crypto.randomUUID(),
-        },
-        manager: createConnectionManager(createEngine()),
+        accessToken,
+        playerTokens,
+        manager: createConnectionManager(createEngine(), tweaks),
     };
 }
 
 function main() {
     const tables = [
-        createTable("play1"),
-        createTable("play2"),
+        createTable("FullPlay A"),
+        createTable("FullPlay B"),
+        createTable("Bidding A", { biddingOnly: true }),
+        createTable("Bidding B", { biddingOnly: true }),
     ];
 
     const hostname = `https://${settings.hostname}:${settings.port}`;
@@ -144,6 +160,9 @@ function main() {
         const access = table.accessToken;
         for (const side of ALL_SIDES) {
             const token = table.playerTokens[side];
+            if (!token) {
+                continue;
+            }
             const url = `${hostname}/${access}/${token}/static/index.html`;
             console.log(`${side}: ${url}`);
         }

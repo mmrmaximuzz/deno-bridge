@@ -1,5 +1,5 @@
 import { Engine, EngineFullState } from "./game/engine.ts";
-import { ALL_SIDES, nextSide, Side } from "./game/common.ts";
+import { ALL_SIDES, getPair, nextSide, Side } from "./game/common.ts";
 import { parseBid, parseCard } from "./parsing.ts";
 import { Bid, FinalContract, prettyPrintFinalContract } from "./game/bidding.ts";
 import { Card } from "./game/cards.ts";
@@ -11,15 +11,32 @@ export interface ConnectionManager {
     register(side: Side, sock: WebSocket): void;
 }
 
+type Tweaks = {
+    biddingOnly: boolean;
+};
+
 class ConnectionManagerImpl implements ConnectionManager {
     clients: Record<Side, Client | null>;
     engine: Engine;
     gen: number;
+    biddingOnly: boolean;
 
-    constructor(engine: Engine) {
+    constructor(engine: Engine, tweaks?: Tweaks) {
         this.clients = { W: null, N: null, E: null, S: null };
         this.engine = engine;
         this.gen = 0;
+        this.biddingOnly = tweaks ? tweaks.biddingOnly : false;
+        if (this.biddingOnly) {
+            this.passIfOpponents(this.engine.getFullState().dealer);
+        }
+    }
+
+    passIfOpponents(side: Side) {
+        if (getPair(side) == "WE") {
+            setTimeout(() => {
+                this.handleEngineBidMessage(null, side, "PASS");
+            }, 1500);
+        }
     }
 
     die(msg: string): never {
@@ -173,10 +190,12 @@ class ConnectionManagerImpl implements ConnectionManager {
         return true;
     }
 
-    handleEngineBidMessage(conn: WebSocket, side: Side, data: unknown): boolean {
+    handleEngineBidMessage(conn: WebSocket | null, side: Side, data: unknown): boolean {
         const bid = parseBid(data);
         if (!bid) {
-            return this.reportError(`failed to parse bid data: ${JSON.stringify(data)}`, conn);
+            if (conn) {
+                return this.reportError(`failed to parse bid data: ${JSON.stringify(data)}`, conn);
+            } else throw new Error("AssertionError: failed to make internal bid");
         }
 
         const response = this.engine.handle({
@@ -191,6 +210,9 @@ class ConnectionManagerImpl implements ConnectionManager {
             case "ok":
                 ++this.gen;
                 this.broadcastBidMessage(side, bid);
+                if (this.biddingOnly) {
+                    this.passIfOpponents(nextSide(side));
+                }
                 return true;
             case "passout":
                 // send the last bid first
@@ -203,6 +225,9 @@ class ConnectionManagerImpl implements ConnectionManager {
 
                 // passout finishes the game, reset the state
                 this.engine.restart();
+                if (this.biddingOnly) {
+                    this.passIfOpponents(this.engine.getFullState().dealer);
+                }
                 return true;
             case "attack":
                 // send the last bid
@@ -211,8 +236,19 @@ class ConnectionManagerImpl implements ConnectionManager {
 
                 // notify clients
                 this.broadcastContract(response.contract);
+
+                if (this.biddingOnly) {
+                    // finish the game if only bidding
+                    this.broadcastNextDealMessage(this.engine.getFullState());
+                    this.engine.restart();
+                    this.passIfOpponents(this.engine.getFullState().dealer);
+                }
                 return true;
             case "err":
+                if (!conn) {
+                    console.error(response.err);
+                    throw new Error("AssertionError: self bid has wrong type");
+                }
                 conn.send(this.createNotification(`engine: ${response.err}`));
                 return true;
             case "playcard":
@@ -363,6 +399,6 @@ class ConnectionManagerImpl implements ConnectionManager {
     }
 }
 
-export function createConnectionManager(engine: Engine): ConnectionManager {
-    return new ConnectionManagerImpl(engine);
+export function createConnectionManager(engine: Engine, tweaks?: Tweaks): ConnectionManager {
+    return new ConnectionManagerImpl(engine, tweaks);
 }

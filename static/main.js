@@ -1030,10 +1030,6 @@ function labelPlayerSides(mySide, dealer, vuln) {
     setMovePosition(getRelativePositionForSide(dealer, mySide));
 }
 
-function playStartSound() {
-    new Audio("mixkit-software-interface-start-2574.wav").play();
-}
-
 function playNotificationSound() {
     new Audio("mixkit-cool-interface-click-tone-2568.wav").play();
 }
@@ -1075,7 +1071,7 @@ function processInitMessage(app, data) {
         processBidMessage(app, side, pending, gen);
     }
 
-    playStartSound();
+    playNotificationSound();
 }
 
 /**
