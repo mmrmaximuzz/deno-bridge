@@ -1,45 +1,22 @@
 import { serveDir } from "@std/http/file-server";
-import { ALL_SIDES, Side } from "./game/common.ts";
 
-import settings from "./settings.json" with { type: "json" };
-import { createEngine, Engine } from "./game/engine.ts";
+import { ALL_SIDES, Side } from "./game/common.ts";
+import { createEngine } from "./game/engine.ts";
 import { ConnectionManager, createConnectionManager } from "./connection.ts";
 
+import settings from "./settings.json" with { type: "json" };
+
 type Tokens = Record<Side, string>;
-type App = {
-    engine: Engine;
-    connManager: ConnectionManager;
+type Table = {
+    name: string;
     accessToken: string;
     playerTokens: Tokens;
+    manager: ConnectionManager;
+};
+type App = {
+    tables: Table[];
     hostname: string;
 };
-
-function verifyTokens(
-    match: URLPatternResult | null,
-    accessToken: string,
-    playerTokens: Tokens,
-): { player: Side; prefix: string } | null {
-    if (!match) {
-        return null;
-    }
-    const inputAccessToken = match.pathname.groups["access"];
-    const playerAccessToken = match.pathname.groups["player"];
-    if (!inputAccessToken || !playerAccessToken) {
-        return null;
-    }
-
-    if (inputAccessToken != accessToken) {
-        return null;
-    }
-
-    for (const player of ALL_SIDES) {
-        const playerToken = playerTokens[player];
-        if (playerAccessToken == playerToken) {
-            return { player: player, prefix: `${accessToken}/${playerToken}` };
-        }
-    }
-    return null;
-}
 
 const ACCESS_ROUTE = new URLPattern({
     pathname: "/:access/:player/*",
@@ -51,8 +28,13 @@ const FILE_ROUTE = new URLPattern({
     pathname: "/:access/:player/static/*",
 });
 
-function handleGameRoute(req: Request, player: Side, app: App): Response {
-    if (req.headers.get("origin") != app.hostname) {
+function handleGameRoute(
+    req: Request,
+    player: Side,
+    hostname: string,
+    manager: ConnectionManager,
+): Response {
+    if (req.headers.get("origin") != hostname) {
         return new Response(null, { status: 400 });
     }
 
@@ -61,58 +43,90 @@ function handleGameRoute(req: Request, player: Side, app: App): Response {
     }
 
     const { socket, response } = Deno.upgradeWebSocket(req);
-    app.connManager.register(player, socket);
+    manager.register(player, socket);
     return response;
 }
 
-function handleFileRoute(req: Request, prefix: string): Promise<Response> {
+function handleFileRoute(
+    req: Request,
+    prefix: string,
+): Response | Promise<Response> {
     return serveDir(req, {
         fsRoot: "static",
         urlRoot: `${prefix}/static`,
     });
 }
 
-function handler(req: Request, app: App): Response | Promise<Response> {
-    const accessMatch = ACCESS_ROUTE.exec(req.url);
-    const client = verifyTokens(accessMatch, app.accessToken, app.playerTokens);
-    if (!client) {
-        if (new URL(req.url).pathname != "/favicon.ico") {
-            console.warn("rejected bad request", req);
+function parseUrl(url: string): [string, string] | null {
+    const match = ACCESS_ROUTE.exec(url);
+    if (!match) {
+        return null;
+    }
+
+    const accessToken = match.pathname.groups["access"];
+    const playerToken = match.pathname.groups["player"];
+    if (!accessToken || !playerToken) {
+        return null;
+    }
+
+    return [accessToken, playerToken];
+}
+
+function matchesTable(access: string, player: string, table: Table): Side | null {
+    if (access == table.accessToken) {
+        for (const side of ALL_SIDES) {
+            if (player == table.playerTokens[side]) {
+                return side;
+            }
         }
+    }
+    return null;
+}
+
+function handler(req: Request, app: App): Response | Promise<Response> {
+    const res = parseUrl(req.url);
+    if (!res) {
         return new Response("400 Bad Request", { status: 400 });
     }
 
-    if (GAME_ROUTE.exec(req.url)) {
-        return handleGameRoute(req, client.player, app);
-    }
-    if (FILE_ROUTE.exec(req.url)) {
-        return handleFileRoute(req, client.prefix);
+    const [access, player] = res;
+    for (const table of app.tables) {
+        const side = matchesTable(access, player, table);
+        if (side) {
+            if (GAME_ROUTE.exec(req.url)) {
+                return handleGameRoute(req, side, app.hostname, table.manager);
+            }
+            if (FILE_ROUTE.exec(req.url)) {
+                return handleFileRoute(req, `${access}/${player}`);
+            }
+        }
     }
 
     return new Response("404 Not Found", { status: 404 });
 }
 
+function createTable(name: string): Table {
+    return {
+        name,
+        accessToken: crypto.randomUUID(),
+        playerTokens: {
+            "N": crypto.randomUUID(),
+            "E": crypto.randomUUID(),
+            "S": crypto.randomUUID(),
+            "W": crypto.randomUUID(),
+        },
+        manager: createConnectionManager(createEngine()),
+    };
+}
+
 function main() {
-    console.log(`Welcome to the Deno Bridge.`);
+    const tables = [
+        createTable("play1"),
+        createTable("play2"),
+    ];
 
-    const accessToken: string = crypto.randomUUID();
-    const playerTokens: Tokens = {
-        "N": crypto.randomUUID(),
-        "E": crypto.randomUUID(),
-        "S": crypto.randomUUID(),
-        "W": crypto.randomUUID(),
-    };
-
-    const engine = createEngine();
-    const connManager = createConnectionManager(engine);
-
-    const app = {
-        engine,
-        connManager,
-        accessToken,
-        playerTokens,
-        hostname: `https://${settings.hostname}:${settings.port}`,
-    };
+    const hostname = `https://${settings.hostname}:${settings.port}`;
+    const app = { tables, hostname };
 
     Deno.serve(
         {
@@ -125,11 +139,14 @@ function main() {
     );
 
     // dump the invite URLs to the console
-    for (const side of ALL_SIDES) {
-        const playerToken = playerTokens[side];
-        const url =
-            `https://${settings.hostname}:${settings.port}/${accessToken}/${playerToken}/static/index.html`;
-        console.log(`${side} - ${url}`);
+    for (const table of tables) {
+        console.log(`table: ${table.name}`);
+        const access = table.accessToken;
+        for (const side of ALL_SIDES) {
+            const token = table.playerTokens[side];
+            const url = `${hostname}/${access}/${token}/static/index.html`;
+            console.log(`${side}: ${url}`);
+        }
     }
 }
 
