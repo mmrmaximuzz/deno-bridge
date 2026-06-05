@@ -31,6 +31,7 @@ export interface Engine {
     getFullState(): EngineFullState;
     restart(): void;
 }
+export type DealFilter = (a0: Deal) => boolean;
 
 type EngineState = {
     deal: Deal;
@@ -43,11 +44,22 @@ type EngineState = {
 };
 class EngineImpl implements Engine {
     state: EngineState;
+    filter: DealFilter;
 
     createNewState(): EngineState {
         const dealer = getRandomSide();
+
+        // generate deal
+        let deal = getRandomDeal();
+        for (;;) {
+            if (this.filter(deal)) {
+                break;
+            }
+            deal = getRandomDeal();
+        }
+
         return {
-            deal: getRandomDeal(),
+            deal,
             phase: "auction",
             bidding: createBidding(dealer),
             vuln: getRandomVulnerability(),
@@ -57,7 +69,8 @@ class EngineImpl implements Engine {
         };
     }
 
-    constructor() {
+    constructor(filter: DealFilter) {
+        this.filter = filter;
         this.state = this.createNewState();
     }
 
@@ -216,6 +229,6 @@ class EngineImpl implements Engine {
     }
 }
 
-export function createEngine(): Engine {
-    return new EngineImpl();
+export function createEngine(dealFilter?: DealFilter): Engine {
+    return new EngineImpl(dealFilter ? dealFilter : () => true);
 }

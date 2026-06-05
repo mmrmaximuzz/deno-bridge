@@ -1,10 +1,11 @@
 import { serveDir } from "@std/http/file-server";
 
 import { ALL_SIDES, Side } from "./game/common.ts";
-import { createEngine } from "./game/engine.ts";
+import { createEngine, DealFilter } from "./game/engine.ts";
 import { ConnectionManager, createConnectionManager } from "./connection.ts";
 
 import settings from "./settings.json" with { type: "json" };
+import { Deal } from "./game/cards.ts";
 
 type Tokens = Record<Side, string | null>;
 type Table = {
@@ -105,10 +106,13 @@ function handler(req: Request, app: App): Response | Promise<Response> {
     return new Response("404 Not Found", { status: 404 });
 }
 
-function createTable(name: string, tweaks?: { biddingOnly: boolean }): Table {
+function createTable(
+    name: string,
+    tweaks?: { biddingOnly: boolean; dealFilter?: DealFilter },
+): Table {
     const accessToken = crypto.randomUUID();
     const playerTokens: Tokens = (() => {
-        if (tweaks && tweaks.biddingOnly) {
+        if (tweaks?.biddingOnly) {
             return {
                 "N": crypto.randomUUID(),
                 "S": crypto.randomUUID(),
@@ -129,16 +133,38 @@ function createTable(name: string, tweaks?: { biddingOnly: boolean }): Table {
         name,
         accessToken,
         playerTokens,
-        manager: createConnectionManager(createEngine(), tweaks),
+        manager: createConnectionManager(createEngine(tweaks?.dealFilter), tweaks),
     };
+}
+
+function gameLikeOnly(deal: Deal): boolean {
+    let hcp = 0;
+    for (const [_, rank] of deal["N"]) {
+        hcp += rank > 10 ? rank - 10 : 0;
+    }
+    for (const [_, rank] of deal["S"]) {
+        hcp += rank > 10 ? rank - 10 : 0;
+    }
+    return hcp >= 20;
+}
+
+function slamOnly(deal: Deal): boolean {
+    let hcp = 0;
+    for (const [_, rank] of deal["N"]) {
+        hcp += rank > 10 ? rank - 10 : 0;
+    }
+    for (const [_, rank] of deal["S"]) {
+        hcp += rank > 10 ? rank - 10 : 0;
+    }
+    return hcp >= 28;
 }
 
 function main() {
     const tables = [
         createTable("FullPlay A"),
         createTable("FullPlay B"),
-        createTable("Bidding A", { biddingOnly: true }),
-        createTable("Bidding B", { biddingOnly: true }),
+        createTable("Bidding A", { biddingOnly: true, dealFilter: gameLikeOnly }),
+        createTable("Bidding B", { biddingOnly: true, dealFilter: slamOnly }),
     ];
 
     const hostname = `https://${settings.hostname}:${settings.port}`;
