@@ -87,14 +87,16 @@ export function getRandomSide(): Side {
 }
 
 export function allDifferent<T>(xs: T[], comparator?: (a: T, b: T) => number): boolean {
-    xs.sort();
-    for (let i = 0; i < xs.length - 1; ++i) {
+    // avoid modifying the input array
+    const vals = ([] as T[]).concat(xs).sort();
+
+    for (let i = 0; i < vals.length - 1; ++i) {
         if (comparator) {
-            if (comparator(xs[i], xs[i + 1]) == 0) {
+            if (comparator(vals[i], vals[i + 1]) == 0) {
                 return false;
             }
         } else {
-            if (xs[i] == xs[i + 1]) {
+            if (vals[i] == vals[i + 1]) {
                 return false;
             }
         }
