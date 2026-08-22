@@ -1,5 +1,6 @@
 {
     "tasks": {
+        "harness": "deno check && deno test && deno lint && deno fmt",
         "dev": "deno run --watch main.ts"
     },
     "imports": {
