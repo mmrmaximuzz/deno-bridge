@@ -1,11 +1,12 @@
 import { serveDir } from "@std/http/file-server";
 
-import { Deal, Side } from "./game/types.ts";
+import { Side } from "./game/types.ts";
 import { getAllSides } from "./game/utils.ts";
 import { createEngine, DealFilter } from "./game/engine.ts";
 import { ConnectionManager, createConnectionManager } from "./connection.ts";
 
 import settings from "./settings.json" with { type: "json" };
+import { gameLike, slamLike } from "deal_filters.ts";
 
 type Tokens = Record<Side, string | null>;
 type Table = {
@@ -137,34 +138,12 @@ function createTable(
     };
 }
 
-function gameLikeOnly(deal: Deal): boolean {
-    let hcp = 0;
-    for (const [_, rank] of deal["N"]) {
-        hcp += rank > 10 ? rank - 10 : 0;
-    }
-    for (const [_, rank] of deal["S"]) {
-        hcp += rank > 10 ? rank - 10 : 0;
-    }
-    return hcp >= 20;
-}
-
-function slamOnly(deal: Deal): boolean {
-    let hcp = 0;
-    for (const [_, rank] of deal["N"]) {
-        hcp += rank > 10 ? rank - 10 : 0;
-    }
-    for (const [_, rank] of deal["S"]) {
-        hcp += rank > 10 ? rank - 10 : 0;
-    }
-    return hcp >= 28;
-}
-
 function main() {
     const tables = [
         createTable("FullPlay A"),
         createTable("FullPlay B"),
-        createTable("Bidding A", { biddingOnly: true, dealFilter: gameLikeOnly }),
-        createTable("Bidding B", { biddingOnly: true, dealFilter: slamOnly }),
+        createTable("Bidding A", { biddingOnly: true, dealFilter: gameLike }),
+        createTable("Bidding B", { biddingOnly: true, dealFilter: slamLike }),
     ];
 
     const hostname = `https://${settings.hostname}:${settings.port}`;
