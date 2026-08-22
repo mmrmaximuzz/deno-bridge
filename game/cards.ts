@@ -44,7 +44,7 @@ class CardPlayImpl implements CardPlay {
     denom: Denomination;
     turn: Side;
     cards: Deal;
-    current: [Side, Card][];
+    currentTrick: [Side, Card][];
     nrTricks: number;
 
     constructor(deal: Deal, declarer: Side, denom: Denomination) {
@@ -58,7 +58,7 @@ class CardPlayImpl implements CardPlay {
             E: ([] as Card[]).concat(deal.E),
             S: ([] as Card[]).concat(deal.S),
         };
-        this.current = [];
+        this.currentTrick = [];
         this.nrTricks = 0;
     }
 
@@ -125,15 +125,15 @@ class CardPlayImpl implements CardPlay {
             return { kind: "error", err: "you don't have this card" };
         }
 
-        if (this.current.length > 0) {
-            if (!this.checkFollowSuit(this.turn, card, this.current[0][1])) {
+        if (this.currentTrick.length > 0) {
+            if (!this.checkFollowSuit(this.turn, card, this.currentTrick[0][1])) {
                 return { kind: "error", err: "you must follow the suit" };
             }
         }
         this.cards[this.turn].splice(idx, 1);
 
-        this.current.push([this.turn, card]);
-        if (this.current.length != 4) {
+        this.currentTrick.push([this.turn, card]);
+        if (this.currentTrick.length != 4) {
             // trick is not complete, go to the next player
             const lastTurn = this.turn;
             this.turn = nextSide(this.turn);
@@ -141,13 +141,13 @@ class CardPlayImpl implements CardPlay {
         }
 
         // trick is complete, process it
-        const W = this.current.find((c) => c[0] == "W");
-        const N = this.current.find((c) => c[0] == "N");
-        const E = this.current.find((c) => c[0] == "E");
-        const S = this.current.find((c) => c[0] == "S");
+        const W = this.currentTrick.find((c) => c[0] == "W");
+        const N = this.currentTrick.find((c) => c[0] == "N");
+        const E = this.currentTrick.find((c) => c[0] == "E");
+        const S = this.currentTrick.find((c) => c[0] == "S");
         if (!W || !N || !E || !S) {
             throw new Error(
-                `AssertionError: impossible transition in current trick state: ${this.current}`,
+                `AssertionError: impossible transition in current trick state: ${this.currentTrick}`,
             );
         }
         const lastTurn = this.turn;
@@ -158,10 +158,10 @@ class CardPlayImpl implements CardPlay {
                 E: E[1],
                 S: S[1],
             },
-            this.current[0][1][0], // AAARGH // AAARGH // AARGHT
+            this.currentTrick[0][1][0],
             this.denom,
         );
-        this.current = []; // reset the current trick state
+        this.currentTrick = []; // reset the current trick state
 
         ++this.nrTricks;
         if (this.nrTricks < 13) {
