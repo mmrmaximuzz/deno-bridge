@@ -1,11 +1,11 @@
 import { serveDir } from "@std/http/file-server";
 
-import { ALL_SIDES, Side } from "./game/common.ts";
+import { Deal, Side } from "./game/types.ts";
+import { getAllSides } from "./game/utils.ts";
 import { createEngine, DealFilter } from "./game/engine.ts";
 import { ConnectionManager, createConnectionManager } from "./connection.ts";
 
 import settings from "./settings.json" with { type: "json" };
-import { Deal } from "./game/cards.ts";
 
 type Tokens = Record<Side, string | null>;
 type Table = {
@@ -75,7 +75,7 @@ function parseUrl(url: string): [string, string] | null {
 
 function matchesTable(access: string, player: string, table: Table): Side | null {
     if (access == table.accessToken) {
-        for (const side of ALL_SIDES) {
+        for (const side of getAllSides()) {
             if (player === table.playerTokens[side]) {
                 return side;
             }
@@ -184,7 +184,7 @@ function main() {
     for (const table of tables) {
         console.log(`table: ${table.name}`);
         const access = table.accessToken;
-        for (const side of ALL_SIDES) {
+        for (const side of getAllSides()) {
             const token = table.playerTokens[side];
             if (!token) {
                 continue;

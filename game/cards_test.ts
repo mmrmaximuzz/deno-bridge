@@ -2,9 +2,9 @@ import { assertEquals } from "@std/assert/equals";
 import { assertNotEquals } from "@std/assert/not-equals";
 import { assertThrows } from "@std/assert/throws";
 
-import { __test__, Card, getRandomDeal, processTrick } from "./cards.ts";
-import { ALL_SIDES, Side } from "./common.ts";
-import { Denomination } from "./bidding.ts";
+import { __test__, processTrick } from "./cards.ts";
+import { getAllSides, getRandomDeal } from "./utils.ts";
+import { Card, Denomination, Side } from "./types.ts";
 import { assertObjectMatch } from "@std/assert/object-match";
 
 Deno.test("random deal", () => {
@@ -241,7 +241,7 @@ function createPlay(
         p.turn = opts.turn;
     }
     if (opts.cards) {
-        for (const side of ALL_SIDES) {
+        for (const side of getAllSides()) {
             p.cards[side].push(opts.cards[side]);
         }
     }
@@ -251,7 +251,7 @@ function createPlay(
 
 Deno.test("card play: game finished", () => {
     const p = createPlay({ nrTricks: 13 });
-    for (const side of ALL_SIDES) {
+    for (const side of getAllSides()) {
         assertEquals(p.handle(side, ["S", 14]).kind, "error");
     }
 });

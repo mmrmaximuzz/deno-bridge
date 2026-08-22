@@ -1,18 +1,6 @@
-import {
-    getPair,
-    nextSide,
-    samePairs,
-    Side,
-    sideNSDynamicCast,
-    sideWEDynamicCast,
-} from "./common.ts";
+import { Bid, Contract, ContractStatus, Denomination, Side } from "./types.ts";
+import { getPair, nextSide, samePairs, sideNSDynamicCast, sideWEDynamicCast } from "./utils.ts";
 
-// exported types
-export type Level = 1 | 2 | 3 | 4 | 5 | 6 | 7;
-export type Denomination = "C" | "D" | "H" | "S" | "NT";
-export type Contract = { level: Level; denom: Denomination };
-export type ContractStatus = "FREE" | "X" | "XX";
-export type Bid = "PASS" | "X" | "XX" | Contract;
 export type FinalContract = {
     contract: Contract;
     status: ContractStatus;

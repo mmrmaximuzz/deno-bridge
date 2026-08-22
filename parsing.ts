@@ -1,5 +1,4 @@
-import { Bid, Denomination, Level } from "./game/bidding.ts";
-import { Card, Rank, Suit } from "./game/cards.ts";
+import { Bid, Card, Denomination, Level, Rank, Suit } from "./game/types.ts";
 
 export function parseLevel(num: unknown): Level | null {
     switch (num) {

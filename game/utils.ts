@@ -1,7 +1,8 @@
-export type Side = "W" | "N" | "E" | "S";
-type Pair = "WE" | "NS";
+import { Card, Deal, Pair, Rank, Side, Suit, Vulnerability } from "./types.ts";
 
-export const ALL_SIDES: Side[] = ["W", "N", "E", "S"];
+export function getAllSides(): Side[] {
+    return ["W", "N", "E", "S"];
+}
 
 export function nextSide(side: Side): Side {
     switch (side) {
@@ -16,17 +17,6 @@ export function nextSide(side: Side): Side {
     }
 }
 
-export function getPair(side: Side): Pair {
-    switch (side) {
-        case "W":
-        case "E":
-            return "WE";
-        case "N":
-        case "S":
-            return "NS";
-    }
-}
-
 export function getPartner(side: Side): Side {
     switch (side) {
         case "W":
@@ -37,6 +27,17 @@ export function getPartner(side: Side): Side {
             return "S";
         case "S":
             return "N";
+    }
+}
+
+export function getPair(side: Side): Pair {
+    switch (side) {
+        case "W":
+        case "E":
+            return "WE";
+        case "N":
+        case "S":
+            return "NS";
     }
 }
 
@@ -81,7 +82,8 @@ export function unbiasedRandRange(limit: number): number {
 }
 
 export function getRandomSide(): Side {
-    return ALL_SIDES[unbiasedRandRange(ALL_SIDES.length)];
+    const allSides = getAllSides();
+    return allSides[unbiasedRandRange(allSides.length)];
 }
 
 export function allDifferent<T>(xs: T[], comparator?: (a: T, b: T) => number): boolean {
@@ -118,4 +120,34 @@ export function compare2Tuples<T, V>(a: [T, V], b: [T, V]): number {
     }
 
     return 0;
+}
+
+export function getRandomVulnerability(): Vulnerability {
+    const ALL: Vulnerability[] = ["NONE", "NS", "WE", "BOTH"];
+    return ALL[unbiasedRandRange(ALL.length)];
+}
+
+export function getRandomDeal(): Deal {
+    const ALL_SUITS: Suit[] = ["S", "H", "D", "C"];
+    const ALL_RANKS: Rank[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+
+    const cards: Card[] = [];
+    for (const suit of ALL_SUITS) {
+        for (const rank of ALL_RANKS) {
+            cards.push([suit, rank]);
+        }
+    }
+
+    // fisher-yates with unbiased randrange
+    for (let i = cards.length - 1; i > 0; --i) {
+        const j = unbiasedRandRange(i);
+        [cards[i], cards[j]] = [cards[j], cards[i]];
+    }
+
+    return {
+        W: cards.slice(0, 13),
+        N: cards.slice(13, 26),
+        E: cards.slice(26, 39),
+        S: cards.slice(39, 52),
+    };
 }

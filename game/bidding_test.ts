@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertExists, assertThrows } from "@std/assert";
-import { __test__, Bid, BiddingResult, createBidding, InvalidBid } from "./bidding.ts";
-import { ALL_SIDES, getPartner, nextSide, Side } from "./common.ts";
+import { __test__, BiddingResult, createBidding, InvalidBid } from "./bidding.ts";
+import { Bid, Side } from "./types.ts";
+import { getAllSides, getPartner, nextSide } from "./utils.ts";
 
 const denominationHigher = __test__.denominationHigher;
 const contractHigher = __test__.contractHigher;
@@ -47,7 +48,7 @@ Deno.test("contract bid comparisons", () => {
 });
 
 Deno.test("create bidding", () => {
-    for (const side of ALL_SIDES) {
+    for (const side of getAllSides()) {
         const bidding = createBidding(side);
         assertExists(bidding);
         assertEquals(bidding.turn(), side);
@@ -63,7 +64,7 @@ type BidVariant = {
 // helper function to test the same bid sequences from all dealers and with all pass preludes
 function generateBidVariants(bids: Bid[]): BidVariant[] {
     const variants = [];
-    for (const initSide of ALL_SIDES) {
+    for (const initSide of getAllSides()) {
         let side = initSide;
         const prefix: Bid[] = [];
         for (const _ of [1, 2, 3]) {
@@ -96,25 +97,25 @@ function playBiddingWithDealer(bids: Bid[], dealer: Side): BiddingResult {
 }
 
 Deno.test("bidding: -", () => {
-    for (const side of ALL_SIDES) {
+    for (const side of getAllSides()) {
         assertEquals(playBiddingWithDealer(["PASS"], side), "inprogress");
     }
 });
 
 Deno.test("bidding: - -", () => {
-    for (const side of ALL_SIDES) {
+    for (const side of getAllSides()) {
         assertEquals(playBiddingWithDealer(["PASS", "PASS"], side), "inprogress");
     }
 });
 
 Deno.test("bidding: - - -", () => {
-    for (const side of ALL_SIDES) {
+    for (const side of getAllSides()) {
         assertEquals(playBiddingWithDealer(["PASS", "PASS", "PASS"], side), "inprogress");
     }
 });
 
 Deno.test("bidding: - - - -", () => {
-    for (const side of ALL_SIDES) {
+    for (const side of getAllSides()) {
         assertEquals(playBiddingWithDealer(["PASS", "PASS", "PASS", "PASS"], side), "passout");
     }
 });

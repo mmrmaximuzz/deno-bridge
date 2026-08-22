@@ -8,7 +8,7 @@ import {
     samePairs,
     sideNSDynamicCast,
     sideWEDynamicCast,
-} from "./common.ts";
+} from "./utils.ts";
 
 Deno.test("side switching", () => {
     assertEquals(nextSide("W"), "N");

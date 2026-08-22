@@ -1,18 +1,6 @@
-import { Denomination } from "./bidding.ts";
-import {
-    ALL_SIDES,
-    allDifferent,
-    compare2Tuples,
-    getPartner,
-    nextSide,
-    Side,
-    unbiasedRandRange,
-} from "./common.ts";
+import { Card, Deal, Denomination, Rank, Side, Suit } from "./types.ts";
+import { allDifferent, compare2Tuples, getAllSides, getPartner, nextSide } from "./utils.ts";
 
-export type Suit = "C" | "D" | "H" | "S";
-export type Rank = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14;
-export type Card = [Suit, Rank];
-export type Deal = Record<Side, Card[]>;
 export type Trick = Record<Side, Card>;
 export type CardPlayResponse =
     | { kind: "next"; lastTurn: Side }
@@ -21,31 +9,6 @@ export type CardPlayResponse =
     | { kind: "done"; lastTurn: Side; winner: Side };
 export interface CardPlay {
     handle(side: Side, card: Card): CardPlayResponse;
-}
-
-export const ALL_SUITS: Suit[] = ["S", "H", "D", "C"];
-export const ALL_RANKS: Rank[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
-
-export function getRandomDeal(): Deal {
-    const cards: Card[] = [];
-    for (const suit of ALL_SUITS) {
-        for (const rank of ALL_RANKS) {
-            cards.push([suit, rank]);
-        }
-    }
-
-    // fisher-yates with unbiased randrange
-    for (let i = cards.length - 1; i > 0; --i) {
-        const j = unbiasedRandRange(i);
-        [cards[i], cards[j]] = [cards[j], cards[i]];
-    }
-
-    return {
-        W: cards.slice(0, 13),
-        N: cards.slice(13, 26),
-        E: cards.slice(26, 39),
-        S: cards.slice(39, 52),
-    };
 }
 
 export function processTrick(trick: Trick, lead: Suit, denom: Denomination): Side {
@@ -57,7 +20,7 @@ export function processTrick(trick: Trick, lead: Suit, denom: Denomination): Sid
         throw new Error(`AssertionError: bad trick ${JSON.stringify(trick)}`);
     }
 
-    for (const side of ALL_SIDES) {
+    for (const side of getAllSides()) {
         const [suit, rank] = trick[side];
         if (suit == lead) {
             suitCards.push([rank, side]);

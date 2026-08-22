@@ -1,8 +1,8 @@
 import { Engine, EngineFullState } from "./game/engine.ts";
-import { ALL_SIDES, getPair, nextSide, Side } from "./game/common.ts";
+import { Bid, Card, Side } from "./game/types.ts";
+import { getAllSides, getPair, nextSide } from "./game/utils.ts";
 import { parseBid, parseCard } from "./parsing.ts";
-import { Bid, FinalContract, prettyPrintFinalContract } from "./game/bidding.ts";
-import { Card } from "./game/cards.ts";
+import { FinalContract, prettyPrintFinalContract } from "./game/bidding.ts";
 
 type Nickname = string | null; // anonymous if null
 type Client = { conn: WebSocket; nick: Nickname };
@@ -97,7 +97,7 @@ class ConnectionManagerImpl implements ConnectionManager {
             return origSender.nick ? `(${origSender.nick})` : "";
         })();
 
-        for (const s of ALL_SIDES) {
+        for (const s of getAllSides()) {
             const client = this.clients[s];
             if (client) {
                 const line = s == side ? `[you]: ${text}` : `${side}${nickRepr}: ${text}`;
@@ -110,7 +110,7 @@ class ConnectionManagerImpl implements ConnectionManager {
     }
 
     broadcast(kind: string, message: unknown): void {
-        for (const s of ALL_SIDES) {
+        for (const s of getAllSides()) {
             const client = this.clients[s];
             if (client) {
                 client.conn.send(JSON.stringify({
