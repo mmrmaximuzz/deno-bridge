@@ -2,7 +2,8 @@ import { Bid, Card, Deal, Side, Vulnerability } from "./types.ts";
 import { Bidding, createBidding, FinalContract, InvalidBid } from "./bidding.ts";
 import { CardPlay, createCardPlay } from "./cards.ts";
 import { nextSide } from "./utils.ts";
-import { getRandomDeal, getRandomSide, getRandomVulnerability } from "./random.ts";
+import { DealFilter } from "./deal_filters.ts";
+import { generateHandWithFilter, getRandomSide, getRandomVulnerability } from "./random.ts";
 
 export type EngineRequest = {
     side: Side;
@@ -32,7 +33,6 @@ export interface Engine {
     getFullState(): EngineFullState;
     restart(): void;
 }
-export type DealFilter = (a0: Deal) => boolean;
 
 type EngineState = {
     deal: Deal;
@@ -49,21 +49,14 @@ class EngineImpl implements Engine {
 
     createNewState(): EngineState {
         const dealer = getRandomSide();
-
-        // generate deal
-        let deal = getRandomDeal();
-        for (;;) {
-            if (this.filter(deal)) {
-                break;
-            }
-            deal = getRandomDeal();
-        }
+        const vuln = getRandomVulnerability();
+        const deal = generateHandWithFilter(this.filter);
 
         return {
             deal,
             phase: "auction",
             bidding: createBidding(dealer),
-            vuln: getRandomVulnerability(),
+            vuln,
             play: null,
             dealer,
             lead: null,
@@ -231,5 +224,5 @@ class EngineImpl implements Engine {
 }
 
 export function createEngine(dealFilter?: DealFilter): Engine {
-    return new EngineImpl(dealFilter ? dealFilter : () => true);
+    return new EngineImpl(dealFilter ? dealFilter : { pred: () => true });
 }

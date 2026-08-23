@@ -5,7 +5,7 @@ export function hcp(card: Card): number {
     return rank > 10 ? rank - 10 : 0;
 }
 
-function evalCardsHcp(cards: Card[]): number {
+export function evalCardsHcp(cards: Card[]): number {
     return cards.map(hcp).reduce((a, b) => a + b);
 }
 

@@ -2,11 +2,11 @@ import { serveDir } from "@std/http/file-server";
 
 import { Side } from "./game/types.ts";
 import { getAllSides } from "./game/utils.ts";
-import { createEngine, DealFilter } from "./game/engine.ts";
+import { createEngine } from "./game/engine.ts";
 import { ConnectionManager, createConnectionManager } from "./connection.ts";
 
 import settings from "./settings.json" with { type: "json" };
-import { gameLike, slamLike } from "deal_filters.ts";
+import { DealFilter, simpleFilterNSHcp, simpleFilterNSLongsuit } from "./game/deal_filters.ts";
 
 type Tokens = Record<Side, string | null>;
 type Table = {
@@ -140,10 +140,23 @@ function createTable(
 
 function main() {
     const tables = [
+        // default playing tables
         createTable("FullPlay A"),
         createTable("FullPlay B"),
-        createTable("Bidding A", { biddingOnly: true, dealFilter: gameLike }),
-        createTable("Bidding B", { biddingOnly: true, dealFilter: slamLike }),
+
+        // bidding tables
+        createTable("NS Bidding A (game-like 22+)", {
+            biddingOnly: true,
+            dealFilter: simpleFilterNSHcp(22),
+        }),
+        createTable("NS Bidding B (slam-like 29+)", {
+            biddingOnly: true,
+            dealFilter: simpleFilterNSHcp(29),
+        }),
+        createTable("NS Bidding C (longsuit 7+)", {
+            biddingOnly: true,
+            dealFilter: simpleFilterNSLongsuit(7),
+        }),
     ];
 
     const hostname = `https://${settings.hostname}:${settings.port}`;

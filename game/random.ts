@@ -1,3 +1,4 @@
+import { DealFilter } from "./deal_filters.ts";
 import { Card, Deal, Rank, Side, Suit, Vulnerability } from "./types.ts";
 import { getAllSides } from "./utils.ts";
 
@@ -46,4 +47,32 @@ export function getRandomDeal(): Deal {
         E: cards.slice(26, 39),
         S: cards.slice(39, 52),
     };
+}
+
+const DEFAULT_RETRIES = 50000;
+const MAX_RETRIES = 1000000;
+
+export function generateHandWithFilter(f: DealFilter): Deal {
+    let limit = (() => {
+        if (!f.limit) {
+            return DEFAULT_RETRIES;
+        }
+
+        if (f.limit <= 0 || Math.trunc(f.limit) != f.limit) {
+            throw new Error(`AssertionError: bad limit for hand generation: ${f.limit}`);
+        }
+        if (f.limit > MAX_RETRIES) {
+            throw new Error(`AssertionError: too big limit for hand generation: ${f.limit}`);
+        }
+        return f.limit;
+    })();
+
+    while (limit--) {
+        const deal = getRandomDeal();
+        if (f.pred(deal)) {
+            return deal;
+        }
+    }
+
+    throw new Error(`Retries limit exceeded: probably too strict or incorrect filter`);
 }
