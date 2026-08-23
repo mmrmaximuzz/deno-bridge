@@ -1,7 +1,8 @@
 import { Bid, Card, Deal, Side, Vulnerability } from "./types.ts";
 import { Bidding, createBidding, FinalContract, InvalidBid } from "./bidding.ts";
 import { CardPlay, createCardPlay } from "./cards.ts";
-import { getRandomDeal, getRandomSide, getRandomVulnerability, nextSide } from "./utils.ts";
+import { nextSide } from "./utils.ts";
+import { getRandomDeal, getRandomSide, getRandomVulnerability } from "./random.ts";
 
 export type EngineRequest = {
     side: Side;

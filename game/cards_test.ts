@@ -3,7 +3,8 @@ import { assertNotEquals } from "@std/assert/not-equals";
 import { assertThrows } from "@std/assert/throws";
 
 import { __test__, processTrick } from "./cards.ts";
-import { getAllSides, getRandomDeal } from "./utils.ts";
+import { getAllSides } from "./utils.ts";
+import { getRandomDeal } from "./random.ts";
 import { Card, Denomination, Side } from "./types.ts";
 import { assertObjectMatch } from "@std/assert/object-match";
 

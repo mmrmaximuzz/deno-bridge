@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert/equals";
 import { Card } from "./types.ts";
 import { evalHandsHcp, hcp } from "./hcp.ts";
-import { getRandomDeal } from "./utils.ts";
+import { getRandomDeal } from "./random.ts";
 
 Deno.test("non-figures are not counted as hcp", () => {
     const hand: Card[] = [
