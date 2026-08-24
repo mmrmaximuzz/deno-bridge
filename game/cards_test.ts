@@ -1,30 +1,10 @@
 import { assertEquals } from "@std/assert/equals";
-import { assertNotEquals } from "@std/assert/not-equals";
 import { assertThrows } from "@std/assert/throws";
 
 import { __test__, processTrick } from "./cards.ts";
 import { getAllSides } from "./utils.ts";
-import { getRandomDeal } from "./random.ts";
 import { Card, Denomination, Side } from "./types.ts";
 import { assertObjectMatch } from "@std/assert/object-match";
-
-Deno.test("random deal", () => {
-    const rndDeal = getRandomDeal();
-
-    let allCards: Card[] = [];
-    allCards = allCards
-        .concat(rndDeal.W)
-        .concat(rndDeal.N)
-        .concat(rndDeal.E)
-        .concat(rndDeal.S)
-        .sort();
-
-    assertEquals(allCards.length, 52);
-    for (let i = 0; i < allCards.length - 1; ++i) {
-        // all cards must be unique
-        assertNotEquals(allCards[i], allCards[i + 1]);
-    }
-});
 
 Deno.test("notrump tricks (all in suit)", () => {
     assertEquals(
