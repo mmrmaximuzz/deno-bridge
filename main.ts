@@ -3,10 +3,10 @@ import { serveDir } from "@std/http/file-server";
 import { Side } from "./game/types.ts";
 import { getAllSides } from "./game/utils.ts";
 import { createEngine } from "./game/engine.ts";
-import { ConnectionManager, createConnectionManager } from "./connection.ts";
+import { ConnectionManager, createConnectionManager, Tweaks } from "./connection.ts";
 
 import settings from "./settings.json" with { type: "json" };
-import { DealFilter, simpleFilterNSHcp, simpleFilterNSLongsuit } from "./game/deal_filters.ts";
+import { simpleFilterNSHcp, simpleFilterNSLongsuit } from "./game/deal_filters.ts";
 
 type Tokens = Record<Side, string | null>;
 type Table = {
@@ -109,7 +109,7 @@ function handler(req: Request, app: App): Response | Promise<Response> {
 
 function createTable(
     name: string,
-    tweaks?: { biddingOnly: boolean; dealFilter?: DealFilter },
+    tweaks?: Tweaks,
 ): Table {
     const accessToken = crypto.randomUUID();
     const playerTokens: Tokens = (() => {
@@ -134,7 +134,7 @@ function createTable(
         name,
         accessToken,
         playerTokens,
-        manager: createConnectionManager(createEngine(tweaks?.dealFilter), tweaks),
+        manager: createConnectionManager(createEngine, tweaks),
     };
 }
 
@@ -147,15 +147,15 @@ function main() {
         // bidding tables
         createTable("NS Bidding A (game-like 22+)", {
             biddingOnly: true,
-            dealFilter: simpleFilterNSHcp(22),
+            filter: simpleFilterNSHcp(22),
         }),
         createTable("NS Bidding B (slam-like 29+)", {
             biddingOnly: true,
-            dealFilter: simpleFilterNSHcp(29),
+            filter: simpleFilterNSHcp(29),
         }),
         createTable("NS Bidding C (longsuit 7+)", {
             biddingOnly: true,
-            dealFilter: simpleFilterNSLongsuit(7),
+            filter: simpleFilterNSLongsuit(7),
         }),
     ];
 

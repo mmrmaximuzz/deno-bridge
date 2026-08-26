@@ -1,8 +1,10 @@
-import { Engine, EngineFullState } from "./game/engine.ts";
+import { createEngine, Engine, EngineFactory, EngineFullState } from "./game/engine.ts";
 import { Bid, Card, Side } from "./game/types.ts";
 import { getAllSides, getPair, nextSide } from "./game/utils.ts";
 import { parseBid, parseCard } from "./parsing.ts";
 import { FinalContract, prettyPrintFinalContract } from "./game/bidding.ts";
+import { DealFilter, noFilter } from "./game/deal_filters.ts";
+import { generateHandWithFilter, getRandomSide, getRandomVulnerability } from "./game/random.ts";
 
 type Nickname = string | null; // anonymous if null
 type Client = { conn: WebSocket; nick: Nickname };
@@ -11,22 +13,33 @@ export interface ConnectionManager {
     register(side: Side, sock: WebSocket): void;
 }
 
-type Tweaks = {
+export type Tweaks = {
+    filter: DealFilter;
     biddingOnly: boolean;
 };
 
 class ConnectionManagerImpl implements ConnectionManager {
     clients: Record<Side, Client | null>;
     engine: Engine;
+    factory: EngineFactory;
     gen: number;
-    biddingOnly: boolean;
+    tweaks: Tweaks;
 
-    constructor(engine: Engine, tweaks?: Tweaks) {
+    createNewEngine(): Engine {
+        const dealer = getRandomSide();
+        const vuln = getRandomVulnerability();
+        const deal = generateHandWithFilter(this.tweaks.filter);
+        return createEngine(deal, dealer, vuln);
+    }
+
+    constructor(engineFactory: EngineFactory, tweaks?: Tweaks) {
         this.clients = { W: null, N: null, E: null, S: null };
-        this.engine = engine;
+        this.factory = engineFactory;
         this.gen = 0;
-        this.biddingOnly = tweaks ? tweaks.biddingOnly : false;
-        if (this.biddingOnly) {
+        this.tweaks = tweaks ? tweaks : { biddingOnly: false, filter: noFilter() };
+        this.engine = this.createNewEngine();
+
+        if (this.tweaks.biddingOnly) {
             this.passIfOpponents(this.engine.getFullState().dealer);
         }
     }
@@ -210,7 +223,7 @@ class ConnectionManagerImpl implements ConnectionManager {
             case "ok":
                 ++this.gen;
                 this.broadcastBidMessage(side, bid);
-                if (this.biddingOnly) {
+                if (this.tweaks.biddingOnly) {
                     this.passIfOpponents(nextSide(side));
                 }
                 return true;
@@ -224,8 +237,8 @@ class ConnectionManagerImpl implements ConnectionManager {
                 this.broadcastNextDealMessage(this.engine.getFullState());
 
                 // passout finishes the game, reset the state
-                this.engine.restart();
-                if (this.biddingOnly) {
+                this.engine = this.createNewEngine();
+                if (this.tweaks.biddingOnly) {
                     this.passIfOpponents(this.engine.getFullState().dealer);
                 }
                 return true;
@@ -237,10 +250,10 @@ class ConnectionManagerImpl implements ConnectionManager {
                 // notify clients
                 this.broadcastContract(response.contract);
 
-                if (this.biddingOnly) {
+                if (this.tweaks.biddingOnly) {
                     // finish the game if only bidding
                     this.broadcastNextDealMessage(this.engine.getFullState());
-                    this.engine.restart();
+                    this.engine = this.createNewEngine();
                     this.passIfOpponents(this.engine.getFullState().dealer);
                 }
                 return true;
@@ -293,7 +306,7 @@ class ConnectionManagerImpl implements ConnectionManager {
             case "done":
                 this.broadcastTrick(response.side, response.card, response.winner);
                 this.broadcastNextDealMessage(this.engine.getFullState());
-                this.engine.restart();
+                this.engine = this.createNewEngine();
                 return true;
         }
     }
@@ -399,6 +412,9 @@ class ConnectionManagerImpl implements ConnectionManager {
     }
 }
 
-export function createConnectionManager(engine: Engine, tweaks?: Tweaks): ConnectionManager {
-    return new ConnectionManagerImpl(engine, tweaks);
+export function createConnectionManager(
+    engineFactory: EngineFactory,
+    tweaks?: Tweaks,
+): ConnectionManager {
+    return new ConnectionManagerImpl(engineFactory, tweaks);
 }

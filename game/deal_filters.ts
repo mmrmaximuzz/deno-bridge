@@ -12,6 +12,12 @@ export type DealFilter = {
     limit?: number;
 };
 
+export function noFilter(): DealFilter {
+    return {
+        pred: (_deal: Deal) => true,
+    };
+}
+
 export function simpleFilterNSHcp(minHcp: number): DealFilter {
     return {
         pred: (deal: Deal) => {
