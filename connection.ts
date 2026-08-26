@@ -1,4 +1,4 @@
-import { createEngine, Engine, EngineFactory, EngineFullState } from "./game/engine.ts";
+import { createEngine, Engine, EngineFullState } from "./game/engine.ts";
 import { Bid, Card, Side } from "./game/types.ts";
 import { getAllSides, getPair, nextSide } from "./game/utils.ts";
 import { parseBid, parseCard } from "./parsing.ts";
@@ -21,7 +21,6 @@ export type Tweaks = {
 class ConnectionManagerImpl implements ConnectionManager {
     clients: Record<Side, Client | null>;
     engine: Engine;
-    factory: EngineFactory;
     gen: number;
     tweaks: Tweaks;
 
@@ -32,9 +31,8 @@ class ConnectionManagerImpl implements ConnectionManager {
         return createEngine(deal, dealer, vuln);
     }
 
-    constructor(engineFactory: EngineFactory, tweaks?: Tweaks) {
+    constructor(tweaks?: Tweaks) {
         this.clients = { W: null, N: null, E: null, S: null };
-        this.factory = engineFactory;
         this.gen = 0;
         this.tweaks = tweaks ? tweaks : { biddingOnly: false, filter: noFilter() };
         this.engine = this.createNewEngine();
@@ -412,9 +410,6 @@ class ConnectionManagerImpl implements ConnectionManager {
     }
 }
 
-export function createConnectionManager(
-    engineFactory: EngineFactory,
-    tweaks?: Tweaks,
-): ConnectionManager {
-    return new ConnectionManagerImpl(engineFactory, tweaks);
+export function createConnectionManager(tweaks?: Tweaks): ConnectionManager {
+    return new ConnectionManagerImpl(tweaks);
 }

@@ -2,7 +2,6 @@ import { serveDir } from "@std/http/file-server";
 
 import { Side } from "./game/types.ts";
 import { getAllSides } from "./game/utils.ts";
-import { createEngine } from "./game/engine.ts";
 import { ConnectionManager, createConnectionManager, Tweaks } from "./connection.ts";
 
 import settings from "./settings.json" with { type: "json" };
@@ -134,7 +133,7 @@ function createTable(
         name,
         accessToken,
         playerTokens,
-        manager: createConnectionManager(createEngine, tweaks),
+        manager: createConnectionManager(tweaks),
     };
 }
 
