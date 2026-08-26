@@ -1190,20 +1190,17 @@ function processEngineMessage(app, data) {
         case "startplay": {
             const dummy = parseSide(data.dummy);
             const table = parseHand(data.table);
-            const lead = parseCard(data.lead);
-            if (!dummy || !table || !lead) {
+            if (!dummy || !table) {
                 printErrorMessage(`bad 'startplay' message: ${JSON.stringify(data)}`);
                 return;
             }
             const declarer = nextSide(nextSide(dummy));
-            const leader = nextSide(declarer);
 
             if (!app.mySide) {
                 printErrorMessage("AssertionError: app not initialized");
                 return;
             }
 
-            moveCardFromHandToTable(app, leader, lead);
             setMovePosition(getRelativePositionForSide(dummy, app.mySide));
 
             if (app.mySide == dummy) {
@@ -1238,10 +1235,8 @@ function processEngineMessage(app, data) {
             break;
         }
         case "trick": {
-            const side = parseSide(data.side);
-            const card = parseCard(data.card);
             const winner = parseSide(data.winner);
-            if (!side || !card || !winner) {
+            if (!winner) {
                 printErrorMessage(`bad 'trick' message: ${JSON.stringify(data)}`);
                 return;
             }
@@ -1249,11 +1244,9 @@ function processEngineMessage(app, data) {
                 printErrorMessage("AssertionError: no self side on 'trick'");
                 return;
             }
-            moveCardFromHandToTable(app, side, card);
             app.needFlushTable = true; // need to flush after the last trick
             setMovePosition(getRelativePositionForSide(winner, app.mySide));
             increaseTrickCount(winner);
-            playNotificationSound();
             break;
         }
         case "nextdeal": {

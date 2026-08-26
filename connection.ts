@@ -1,5 +1,5 @@
-import { createEngine, Engine, EngineFullState } from "./game/engine.ts";
-import { Bid, Card, Side } from "./game/types.ts";
+import { createEngine, Engine, GameEvent } from "./game/engine.ts";
+import { Bid, Card, Deal, Side, Vulnerability } from "./game/types.ts";
 import { getAllSides, getPair, nextSide } from "./game/utils.ts";
 import { parseBid, parseCard } from "./parsing.ts";
 import { FinalContract, prettyPrintFinalContract } from "./game/bidding.ts";
@@ -18,27 +18,46 @@ export type Tweaks = {
     biddingOnly: boolean;
 };
 
+type Game = {
+    deal: Deal;
+    dealer: Side;
+    vuln: Vulnerability;
+    engine: Engine;
+    events: GameEvent[];
+    oplead: [Side, Card] | null;
+    contract: FinalContract | null;
+};
+
 class ConnectionManagerImpl implements ConnectionManager {
     clients: Record<Side, Client | null>;
-    engine: Engine;
+    game: Game;
     gen: number;
     tweaks: Tweaks;
 
-    createNewEngine(): Engine {
+    createNewGame(): Game {
         const dealer = getRandomSide();
         const vuln = getRandomVulnerability();
         const deal = generateHandWithFilter(this.tweaks.filter);
-        return createEngine(deal, dealer, vuln);
+        const engine = createEngine(deal, dealer, vuln);
+        return {
+            deal,
+            dealer,
+            vuln,
+            engine,
+            events: [],
+            oplead: null,
+            contract: null,
+        };
     }
 
     constructor(tweaks?: Tweaks) {
         this.clients = { W: null, N: null, E: null, S: null };
         this.gen = 0;
         this.tweaks = tweaks ? tweaks : { biddingOnly: false, filter: noFilter() };
-        this.engine = this.createNewEngine();
+        this.game = this.createNewGame();
 
         if (this.tweaks.biddingOnly) {
-            this.passIfOpponents(this.engine.getFullState().dealer);
+            this.passIfOpponents(this.game.dealer);
         }
     }
 
@@ -63,25 +82,26 @@ class ConnectionManagerImpl implements ConnectionManager {
         return JSON.stringify({ kind: "error", data: `server: ${err}` });
     }
 
-    createInit(side: Side, state: EngineFullState, gen: number): string {
-        if (state.phase == "auction") {
-            // on auction filter only the players cards
-            return JSON.stringify({
-                kind: "init",
-                data: {
-                    side,
-                    state: {
-                        phase: state.phase,
-                        bidHistory: state.bidHistory,
-                        deal: state.deal[side],
-                        vuln: state.vuln,
-                    },
-                    gen,
-                },
-            });
-        } else {
-            return this.die("not implemented");
+    createInit(side: Side, gen: number): string {
+        const game = this.game;
+
+        if (auctionFinished(game)) {
+            this.die("not implemented");
         }
+
+        return JSON.stringify({
+            kind: "init",
+            data: {
+                side,
+                state: {
+                    phase: "auction",
+                    bidHistory: extractBidHistory(game),
+                    deal: game.deal[side],
+                    vuln: game.vuln,
+                },
+                gen,
+            },
+        });
     }
 
     reportError(err: string, conn?: WebSocket): boolean {
@@ -157,19 +177,18 @@ class ConnectionManagerImpl implements ConnectionManager {
         });
     }
 
-    broadcastNextDealMessage(state: EngineFullState): void {
+    broadcastDealFinished(oldgame: Game, lead: [Side, Card] | null): void {
         this.broadcast("engine", {
             kind: "nextdeal",
-            reveal: state.deal,
-            dealer: state.dealer,
-            lead: state.lead,
+            reveal: oldgame.deal,
+            dealer: oldgame.dealer,
+            lead,
         });
     }
 
-    broadcastStartPlay(lead: Card, dummy: Side, table: Card[]) {
+    broadcastStartPlay(dummy: Side, table: Card[]) {
         this.broadcast("engine", {
             kind: "startplay",
-            lead,
             dummy,
             table,
         });
@@ -183,21 +202,19 @@ class ConnectionManagerImpl implements ConnectionManager {
         });
     }
 
-    broadcastTrick(side: Side, card: Card, winner: Side) {
+    broadcastTrick(winner: Side) {
         this.broadcast("engine", {
             kind: "trick",
-            side,
-            card,
             winner,
         });
     }
 
     handleInitMessage(conn: WebSocket, side: Side, nick: Nickname): boolean {
         if (!this.clients[side]) {
-            throw new Error("AssertionError: got init message from non-connected client");
+            this.die(`AssertionError: got init message from non-connected client: ${side}:${nick}`);
         }
         this.clients[side].nick = nick;
-        conn.send(this.createInit(side, this.engine.getFullState(), this.gen));
+        conn.send(this.createInit(side, this.gen));
         return true;
     }
 
@@ -209,7 +226,7 @@ class ConnectionManagerImpl implements ConnectionManager {
             } else throw new Error("AssertionError: failed to make internal bid");
         }
 
-        const response = this.engine.handle({
+        const response = this.game.engine.handle({
             side,
             data: {
                 kind: "bid",
@@ -218,55 +235,55 @@ class ConnectionManagerImpl implements ConnectionManager {
         });
 
         switch (response.kind) {
-            case "ok":
-                ++this.gen;
-                this.broadcastBidMessage(side, bid);
-                if (this.tweaks.biddingOnly) {
-                    this.passIfOpponents(nextSide(side));
-                }
-                return true;
-            case "passout":
-                // send the last bid first
-                ++this.gen;
-                this.broadcastBidMessage(side, bid);
-
-                // notify clients
-                this.broadcastNotificationMessage("passout, for next deal click the button");
-                this.broadcastNextDealMessage(this.engine.getFullState());
-
-                // passout finishes the game, reset the state
-                this.engine = this.createNewEngine();
-                if (this.tweaks.biddingOnly) {
-                    this.passIfOpponents(this.engine.getFullState().dealer);
-                }
-                return true;
-            case "attack":
-                // send the last bid
-                ++this.gen;
-                this.broadcastBidMessage(side, bid);
-
-                // notify clients
-                this.broadcastContract(response.contract);
-
-                if (this.tweaks.biddingOnly) {
-                    // finish the game if only bidding
-                    this.broadcastNextDealMessage(this.engine.getFullState());
-                    this.engine = this.createNewEngine();
-                    this.passIfOpponents(this.engine.getFullState().dealer);
-                }
-                return true;
             case "err":
                 if (!conn) {
                     console.error(response.err);
-                    throw new Error("AssertionError: self bid has wrong type");
+                    throw new Error("AssertionError: error happened on internal bid message");
                 }
                 conn.send(this.createNotification(`engine: ${response.err}`));
                 return true;
-            case "playcard":
-            case "startplay":
-            case "trick":
-            case "done":
-                return this.die("AssertionError: impossible reponse for bid");
+
+            case "ok": {
+                for (const event of response.events) {
+                    ++this.gen;
+                    switch (event.kind) {
+                        case "BidMade":
+                            this.broadcastBidMessage(event.side, event.bid);
+                            if (this.tweaks.biddingOnly) {
+                                this.passIfOpponents(nextSide(side));
+                            }
+                            break;
+
+                        case "PassOut":
+                            this.broadcastNotificationMessage(
+                                "passout, for next deal click the button",
+                            );
+                            this.broadcastDealFinished(this.game, null);
+
+                            // passout finishes the game, reset the state
+                            this.game = this.createNewGame();
+                            if (this.tweaks.biddingOnly) {
+                                this.passIfOpponents(this.game.dealer);
+                            }
+                            break;
+
+                        case "ContractReached":
+                            this.broadcastContract(event.contract);
+                            if (this.tweaks.biddingOnly) {
+                                // finish the game if bidding
+                                this.broadcastDealFinished(this.game, null);
+                                this.game = this.createNewGame();
+                                this.passIfOpponents(this.game.dealer);
+                            }
+                            this.game.contract = event.contract;
+                            break;
+
+                        default:
+                            return this.die(`AssertionError: impossible bid response ${event}`);
+                    }
+                }
+                return true;
+            }
         }
     }
 
@@ -276,7 +293,7 @@ class ConnectionManagerImpl implements ConnectionManager {
             return this.reportError(`${side}: bad card: ${JSON.stringify(rawCard)}`, conn);
         }
 
-        const response = this.engine.handle({
+        const response = this.game.engine.handle({
             side,
             data: {
                 kind: "cardplay",
@@ -285,27 +302,35 @@ class ConnectionManagerImpl implements ConnectionManager {
         });
 
         switch (response.kind) {
-            case "ok":
-            case "attack":
-            case "passout":
-                return this.die(`AssertionError: impossible engine transition: ${response.kind}`);
             case "err":
                 conn.send(this.createNotification(`engine: ${response.err}`));
                 return true;
-            case "startplay":
-                this.broadcastStartPlay(response.lead, response.dummy, response.table);
+
+            case "ok": {
+                for (const event of response.events) {
+                    switch (event.kind) {
+                        case "CardPlayed":
+                            this.broadcastPlayCard(event.side, event.card);
+                            break;
+                        case "DummyRevealed": {
+                            this.broadcastStartPlay(event.side, event.hand);
+                            return true;
+                        }
+                        case "TrickCompleted": {
+                            this.broadcastTrick(event.winner);
+                            break;
+                        }
+                        case "DealFinished":
+                            this.broadcastDealFinished(this.game, this.game.oplead);
+                            this.game = this.createNewGame();
+                            break;
+                        default:
+                            this.die(`AssertionError: impossible cardplay response ${event}`);
+                    }
+                    this.game.events.push(event);
+                }
                 return true;
-            case "playcard":
-                this.broadcastPlayCard(response.side, response.card);
-                return true;
-            case "trick":
-                this.broadcastTrick(response.side, response.card, response.winner);
-                return true;
-            case "done":
-                this.broadcastTrick(response.side, response.card, response.winner);
-                this.broadcastNextDealMessage(this.engine.getFullState());
-                this.engine = this.createNewEngine();
-                return true;
+            }
         }
     }
 
@@ -329,6 +354,7 @@ class ConnectionManagerImpl implements ConnectionManager {
                 return this.reportError(`${side}: bad engine message kind: ${data.kind}`, conn);
         }
     }
+
     handleMessageInternal(
         conn: WebSocket,
         side: Side,
@@ -376,7 +402,7 @@ class ConnectionManagerImpl implements ConnectionManager {
 
         const res = this.handleMessageInternal(conn, side, rawObject);
         if (!res) {
-            console.warn(`failed to process message: ${JSON.stringify(data)}`);
+            console.warn(`handleMessage: failed to process message: ${JSON.stringify(data)}`);
         }
     }
 
@@ -412,4 +438,24 @@ class ConnectionManagerImpl implements ConnectionManager {
 
 export function createConnectionManager(tweaks?: Tweaks): ConnectionManager {
     return new ConnectionManagerImpl(tweaks);
+}
+
+// FIXME: compatibility with old connection code
+function auctionFinished(game: Game) {
+    for (const event of game.events) {
+        if (event.kind == "CardPlayed" || event.kind == "PassOut") {
+            return true;
+        }
+    }
+    return false;
+}
+
+function extractBidHistory(game: Game) {
+    const bids: Bid[] = [];
+    for (const event of game.events) {
+        if (event.kind == "BidMade") {
+            bids.push(event.bid);
+        }
+    }
+    return [game.dealer, bids];
 }
