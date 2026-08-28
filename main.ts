@@ -5,7 +5,7 @@ import { getAllSides } from "./game/utils.ts";
 import { ConnectionManager, createConnectionManager, Tweaks } from "./connection.ts";
 
 import settings from "./settings.json" with { type: "json" };
-import { simpleFilterNSHcp, simpleFilterNSLongsuit } from "./game/deal_filters.ts";
+import { noFilter, simpleFilterNSHcp, simpleFilterNSLongsuit } from "./game/deal_filters.ts";
 
 type Tokens = Record<Side, string | null>;
 type Table = {
@@ -144,17 +144,21 @@ function main() {
         createTable("FullPlay B"),
 
         // bidding tables
-        createTable("NS Bidding A (game-like 22+)", {
+        createTable("NS Bidding A", {
+            biddingOnly: true,
+            filter: noFilter(),
+        }),
+        createTable("NS Bidding B (game-like 22+)", {
             biddingOnly: true,
             filter: simpleFilterNSHcp(22),
         }),
-        createTable("NS Bidding B (slam-like 29+)", {
+        createTable("NS Bidding C (slam-like 29+)", {
             biddingOnly: true,
             filter: simpleFilterNSHcp(29),
         }),
-        createTable("NS Bidding C (longsuit 7+)", {
+        createTable("NS Bidding D (longsuit 6+)", {
             biddingOnly: true,
-            filter: simpleFilterNSLongsuit(7),
+            filter: simpleFilterNSLongsuit(6),
         }),
     ];
 
