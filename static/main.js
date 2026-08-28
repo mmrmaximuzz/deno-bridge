@@ -445,41 +445,21 @@ function auctionHistoryAdd(bid) {
     }
 }
 
+const ALL_CARDS_PRETTY = {
+    S: ["🂢", "🂣", "🂤", "🂥", "🂦", "🂧", "🂨", "🂩", "🂪", "🂫", "🂭", "🂮", "🂡"],
+    H: ["🂲", "🂳", "🂴", "🂵", "🂶", "🂷", "🂸", "🂹", "🂺", "🂻", "🂽", "🂾", "🂱"],
+    D: ["🃂", "🃃", "🃄", "🃅", "🃆", "🃇", "🃈", "🃉", "🃊", "🃋", "🃍", "🃎", "🃁"],
+    C: ["🃒", "🃓", "🃔", "🃕", "🃖", "🃗", "🃘", "🃙", "🃚", "🃛", "🃝", "🃞", "🃑"],
+};
+
 /**
  * @param {Rank} rank
+ * @param {Suit} suit
  * @return {string}
  */
-function rankPrettyPrint(rank) {
-    switch (rank) {
-        case 2:
-            return "2";
-        case 3:
-            return "3";
-        case 4:
-            return "4";
-        case 5:
-            return "5";
-        case 6:
-            return "6";
-        case 7:
-            return "7";
-        case 8:
-            return "8";
-        case 9:
-            return "9";
-        case 10:
-            return "t";
-        case 11:
-            return "J";
-        case 12:
-            return "Q";
-        case 13:
-            return "K";
-        case 14:
-            return "A";
-        default:
-            throw new Error("unreachable");
-    }
+function cardPrettyPrint(rank, suit) {
+    const rankOffset = rank - 2;
+    return ALL_CARDS_PRETTY[suit][rankOffset];
 }
 
 /**
@@ -656,10 +636,10 @@ function placeCardToTable(app, pos, card) {
 
     const cardElem = document.createElement("span");
     const [suit, rank] = card;
-    const rankSymbol = rankPrettyPrint(rank);
-    const [suitSymbol, suitStyle] = suitPrettyPrint(suit);
+    const cardSymbol = cardPrettyPrint(rank, suit);
+    const [_, suitStyle] = suitPrettyPrint(suit);
     cardElem.className = suitStyle;
-    cardElem.innerText = `${rankSymbol}${suitSymbol}`;
+    cardElem.innerText = `${cardSymbol}`;
 
     const cardHolderElem = document.createElement("span");
     cardHolderElem.className = "singlecard";
@@ -685,6 +665,7 @@ function moveCardFromHandToTable(app, side, card) {
         printErrorMessage(`AssertionError: failed to remove card ${card} from hand: ${side}`);
         return;
     }
+
     placeCardToTable(app, pos, card);
 }
 
@@ -717,16 +698,15 @@ function displayPlayerHand(app, hand, position, makeClickable) {
     };
 
     for (const [suit, rank] of hand) {
-        const repr = rankPrettyPrint(rank);
+        const repr = cardPrettyPrint(rank, suit);
         template[suit].push([rank, repr]);
     }
 
     const handDiv = document.createElement("div");
     for (const suit of ALL_SUITS_ORDERED) {
-        const [suitRepr, suitStyle] = suitPrettyPrint(suit);
+        const [_, suitStyle] = suitPrettyPrint(suit);
         const suitDiv = document.createElement("div");
         suitDiv.className = suitStyle;
-        suitDiv.innerText = `${suitRepr} `;
         for (const [rank, rankRepr] of template[suit]) {
             const card = document.createElement("span");
             card.id = `card-${suit}-${rank}`;

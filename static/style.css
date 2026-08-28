@@ -43,10 +43,11 @@
     background-color: white;
     border: 1px solid black;
     padding: 1px;
+    font-size: x-large;
 }
 
 .card-in-hand {
-    margin: 2px;
+    font-size: x-large;
 }
 
 #auction-result {
