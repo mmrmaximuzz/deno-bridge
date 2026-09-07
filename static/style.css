@@ -1,21 +1,25 @@
 .page {
     display: grid;
-    grid-template-areas:
-        "main"
-        "chat";
-    gap: 10px;
+    grid-template-areas: "page-game-table page-auction-chat";
+    grid-template-columns: 3fr 2fr;
 }
 
-.main {
+.game-table {
     display: grid;
     grid-template-areas:
-        "top-player top-player top-player auction"
-        "left-player table right-player auction"
-        "bottom-player bottom-player bottom-player auction";
-    grid-template-columns: 1fr 2fr 1fr 3fr;
+        "top-player top-player top-player"
+        "left-player table right-player"
+        "bottom-player bottom-player bottom-player";
+    grid-template-columns: 2fr 3fr 2fr;
     grid-template-rows: 1fr 2fr 1fr;
-    height: 60vh;
     gap: 3px;
+}
+
+.auction-chat {
+    display: grid;
+    grid-template-areas:
+        "auction"
+        "chat";
 }
 
 .table {
@@ -51,7 +55,7 @@
 #auction-result {
     display: flex;
     font-weight: bold;
-    font-size: big;
+    font-size: medium;
     justify-content: center;
     align-items: center;
 }
@@ -65,7 +69,6 @@
     font-family: monospace;
     overflow-y: scroll;
     height: 25vh;
-    width: 100vh;
     border: 1px solid black;
 }
 
@@ -85,12 +88,12 @@
 }
 
 #auction {
-    width: 100%;
     font-family: monospace;
     text-align: center;
     border: 1px solid black;
     border-collapse: collapse;
     table-layout: fixed;
+    font-size: x-large;
 }
 
 #auction tr td {
@@ -98,7 +101,6 @@
 }
 
 #auction-history {
-    width: 100%;
     font-family: monospace;
     text-align: center;
     border: 1px solid black;
