@@ -16,6 +16,7 @@ export interface ConnectionManager {
 export type Tweaks = {
     filter: DealFilter;
     biddingOnly: boolean;
+    nsOnly: boolean;
 };
 
 type Game = {
@@ -53,10 +54,10 @@ class ConnectionManagerImpl implements ConnectionManager {
     constructor(tweaks?: Tweaks) {
         this.clients = { W: null, N: null, E: null, S: null };
         this.gen = 0;
-        this.tweaks = tweaks ? tweaks : { biddingOnly: false, filter: noFilter() };
+        this.tweaks = tweaks ? tweaks : { biddingOnly: false, nsOnly: false, filter: noFilter() };
         this.game = this.createNewGame();
 
-        if (this.tweaks.biddingOnly) {
+        if (this.tweaks.nsOnly) {
             this.passIfOpponents(this.game.dealer);
         }
     }
@@ -249,7 +250,7 @@ class ConnectionManagerImpl implements ConnectionManager {
                     switch (event.kind) {
                         case "BidMade":
                             this.broadcastBidMessage(event.side, event.bid);
-                            if (this.tweaks.biddingOnly) {
+                            if (this.tweaks.nsOnly) {
                                 this.passIfOpponents(nextSide(side));
                             }
                             break;
@@ -262,7 +263,7 @@ class ConnectionManagerImpl implements ConnectionManager {
 
                             // passout finishes the game, reset the state
                             this.game = this.createNewGame();
-                            if (this.tweaks.biddingOnly) {
+                            if (this.tweaks.nsOnly) {
                                 this.passIfOpponents(this.game.dealer);
                             }
                             break;
@@ -273,7 +274,9 @@ class ConnectionManagerImpl implements ConnectionManager {
                                 // finish the game if bidding
                                 this.broadcastDealFinished(this.game, null);
                                 this.game = this.createNewGame();
-                                this.passIfOpponents(this.game.dealer);
+                                if (this.tweaks.nsOnly) {
+                                    this.passIfOpponents(this.game.dealer);
+                                }
                             }
                             this.game.contract = event.contract;
                             break;

@@ -158,6 +158,7 @@ function create_tables_default(): Table[] {
             name: "NS Bidding A",
             tweaks: {
                 biddingOnly: true,
+                nsOnly: true,
                 filter: noFilter(),
             },
             tokenFunc,
@@ -166,6 +167,7 @@ function create_tables_default(): Table[] {
             name: "NS Bidding B (game-like 22+)",
             tweaks: {
                 biddingOnly: true,
+                nsOnly: true,
                 filter: simpleFilterNSHcp(22),
             },
             tokenFunc,
@@ -174,6 +176,7 @@ function create_tables_default(): Table[] {
             name: "NS Bidding C (slam-like 29+)",
             tweaks: {
                 biddingOnly: true,
+                nsOnly: true,
                 filter: simpleFilterNSHcp(29),
             },
             tokenFunc,
@@ -182,6 +185,7 @@ function create_tables_default(): Table[] {
             name: "NS Bidding D (longsuit 6+)",
             tweaks: {
                 biddingOnly: true,
+                nsOnly: true,
                 filter: simpleFilterNSLongsuit(6),
             },
             tokenFunc,
@@ -197,6 +201,7 @@ function create_tables_debug(): Table[] {
             name: "NSBidding",
             tweaks: {
                 biddingOnly: true,
+                nsOnly: true,
                 filter: noFilter(),
             },
             tokenFunc,
