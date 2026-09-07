@@ -106,25 +106,32 @@ function handler(req: Request, app: App): Response | Promise<Response> {
     return new Response("404 Not Found", { status: 404 });
 }
 
-function createTable(
-    name: string,
-    tweaks?: Tweaks,
-): Table {
-    const accessToken = crypto.randomUUID();
+type TableArgs = {
+    name: string;
+    tweaks?: Tweaks;
+    tokenFunc: (rawstr: string) => string;
+};
+
+function createTable(args: TableArgs): Table {
+    const name = args.name;
+    const tokenFunc = args.tokenFunc;
+    const tweaks = args.tweaks;
+
+    const accessToken = tokenFunc(name);
     const playerTokens: Tokens = (() => {
         if (tweaks?.biddingOnly) {
             return {
-                "N": crypto.randomUUID(),
-                "S": crypto.randomUUID(),
+                "N": tokenFunc("N"),
+                "S": tokenFunc("S"),
                 "W": null,
                 "E": null,
             };
         } else {
             return {
-                "N": crypto.randomUUID(),
-                "E": crypto.randomUUID(),
-                "S": crypto.randomUUID(),
-                "W": crypto.randomUUID(),
+                "N": tokenFunc("N"),
+                "E": tokenFunc("E"),
+                "S": tokenFunc("S"),
+                "W": tokenFunc("W"),
             };
         }
     })();
@@ -137,30 +144,74 @@ function createTable(
     };
 }
 
-function main() {
-    const tables = [
+function create_tables_default(): Table[] {
+    const tokenFunc = (_arg: string) => {
+        return crypto.randomUUID();
+    };
+    return [
         // default playing tables
-        createTable("FullPlay A"),
-        createTable("FullPlay B"),
+        createTable({ name: "FullPlay A", tokenFunc }),
+        createTable({ name: "FullPlay B", tokenFunc }),
 
         // bidding tables
-        createTable("NS Bidding A", {
-            biddingOnly: true,
-            filter: noFilter(),
+        createTable({
+            name: "NS Bidding A",
+            tweaks: {
+                biddingOnly: true,
+                filter: noFilter(),
+            },
+            tokenFunc,
         }),
-        createTable("NS Bidding B (game-like 22+)", {
-            biddingOnly: true,
-            filter: simpleFilterNSHcp(22),
+        createTable({
+            name: "NS Bidding B (game-like 22+)",
+            tweaks: {
+                biddingOnly: true,
+                filter: simpleFilterNSHcp(22),
+            },
+            tokenFunc,
         }),
-        createTable("NS Bidding C (slam-like 29+)", {
-            biddingOnly: true,
-            filter: simpleFilterNSHcp(29),
+        createTable({
+            name: "NS Bidding C (slam-like 29+)",
+            tweaks: {
+                biddingOnly: true,
+                filter: simpleFilterNSHcp(29),
+            },
+            tokenFunc,
         }),
-        createTable("NS Bidding D (longsuit 6+)", {
-            biddingOnly: true,
-            filter: simpleFilterNSLongsuit(6),
+        createTable({
+            name: "NS Bidding D (longsuit 6+)",
+            tweaks: {
+                biddingOnly: true,
+                filter: simpleFilterNSLongsuit(6),
+            },
+            tokenFunc,
         }),
     ];
+}
+
+function create_tables_debug(): Table[] {
+    const tokenFunc = (arg: string) => arg;
+    return [
+        createTable({ name: "FullPlay", tokenFunc }),
+        createTable({
+            name: "NSBidding",
+            tweaks: {
+                biddingOnly: true,
+                filter: noFilter(),
+            },
+            tokenFunc,
+        }),
+    ];
+}
+
+function main() {
+    const args = Deno.args;
+    const tables = (() => {
+        if (args && args.length == 1 && args[0] == "debug") {
+            return create_tables_debug();
+        }
+        return create_tables_default();
+    })();
 
     const hostname = `https://${settings.hostname}:${settings.port}`;
     const app = { tables, hostname };

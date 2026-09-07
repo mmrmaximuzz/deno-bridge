@@ -1,7 +1,7 @@
 {
     "tasks": {
         "harness": "deno check && deno test && deno lint && deno fmt",
-        "dev": "deno run --watch main.ts"
+        "run-debug": "sh gencert.sh && deno run --allow-read=server.key,server.crt,static --allow-net=127.0.0.1:60000 main.ts debug"
     },
     "imports": {
         "@std/assert": "jsr:@std/assert@^1.0.19",
