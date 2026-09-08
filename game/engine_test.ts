@@ -152,3 +152,125 @@ Deno.test("run full deal from PBNv2.1 example game", () => {
     ];
     assertEquals(events, EXPECTED);
 });
+
+Deno.test("passout game", () => {
+    const DEAL: Deal = {
+        N: pbnDecodeHand(".63.AKQ987.A9732"),
+        E: pbnDecodeHand("A8654.KQ5.T.QJT6"),
+        S: pbnDecodeHand("J973.J98742.3.K4"),
+        W: pbnDecodeHand("KQT2.AT.J6542.85"),
+    };
+    const INPUT: EngineInput[] = [
+        { side: "N", data: { kind: "bid", bid: "PASS" } },
+        { side: "E", data: { kind: "bid", bid: "PASS" } },
+        { side: "S", data: { kind: "bid", bid: "PASS" } },
+        { side: "W", data: { kind: "bid", bid: "PASS" } },
+    ];
+    const events: GameEvent[] = [];
+
+    const engine = createEngine(DEAL, "N", "NONE");
+    for (const input of INPUT) {
+        const res = engine.handle(input);
+        switch (res.kind) {
+            case "ok":
+                events.push(...res.events);
+                break;
+            case "err":
+                throw new AssertionError(res.err);
+        }
+    }
+
+    const EXPECTED: GameEvent[] = [
+        { kind: "BidMade", side: "N", bid: "PASS" },
+        { kind: "BidMade", side: "E", bid: "PASS" },
+        { kind: "BidMade", side: "S", bid: "PASS" },
+        { kind: "BidMade", side: "W", bid: "PASS" },
+        { kind: "PassOut" },
+    ];
+    assertEquals(events, EXPECTED);
+});
+
+Deno.test("full (but unreal) game", () => {
+    const DEAL: Deal = {
+        N: pbnDecodeHand("...AKQJT98765432"),
+        E: pbnDecodeHand("..AKQJT98765432."),
+        S: pbnDecodeHand(".AKQJT98765432.."),
+        W: pbnDecodeHand("AKQJT98765432..."),
+    };
+    const INPUT: EngineInput[] = [
+        // bidding
+        { side: "N", data: { kind: "bid", bid: { level: 7, denom: "C" } } },
+        { side: "E", data: { kind: "bid", bid: { level: 7, denom: "D" } } },
+        { side: "S", data: { kind: "bid", bid: { level: 7, denom: "H" } } },
+        { side: "W", data: { kind: "bid", bid: { level: 7, denom: "S" } } },
+        { side: "N", data: { kind: "bid", bid: "PASS" } },
+        { side: "E", data: { kind: "bid", bid: "PASS" } },
+        { side: "S", data: { kind: "bid", bid: "PASS" } },
+
+        // card play
+        // attack made by North, the rest of card play done from West
+        { side: "N", data: { kind: "cardplay", card: ["C", 14] } },
+        { side: "W", data: { kind: "cardplay", card: ["D", 14] } },
+        { side: "S", data: { kind: "cardplay", card: ["H", 14] } },
+        { side: "W", data: { kind: "cardplay", card: ["S", 14] } },
+    ];
+    // the rest of card play
+    const RANKS: Rank[] = [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2];
+    for (const rank of RANKS) {
+        INPUT.push({ side: "W", data: { kind: "cardplay", card: ["S", rank] } });
+        INPUT.push({ side: "N", data: { kind: "cardplay", card: ["C", rank] } });
+        INPUT.push({ side: "W", data: { kind: "cardplay", card: ["D", rank] } });
+        INPUT.push({ side: "S", data: { kind: "cardplay", card: ["H", rank] } });
+    }
+    const events: GameEvent[] = [];
+
+    const engine = createEngine(DEAL, "N", "NONE");
+    for (const input of INPUT) {
+        const res = engine.handle(input);
+        switch (res.kind) {
+            case "ok":
+                events.push(...res.events);
+                break;
+            case "err":
+                throw new AssertionError(res.err);
+        }
+    }
+
+    const EXPECTED: GameEvent[] = [
+        { kind: "BidMade", side: "N", bid: { level: 7, denom: "C" } },
+        { kind: "BidMade", side: "E", bid: { level: 7, denom: "D" } },
+        { kind: "BidMade", side: "S", bid: { level: 7, denom: "H" } },
+        { kind: "BidMade", side: "W", bid: { level: 7, denom: "S" } },
+        { kind: "BidMade", side: "N", bid: "PASS" },
+        { kind: "BidMade", side: "E", bid: "PASS" },
+        { kind: "BidMade", side: "S", bid: "PASS" },
+        {
+            kind: "ContractReached",
+            contract: {
+                contract: { level: 7, denom: "S" },
+                status: "FREE",
+                declarer: "W",
+            },
+        },
+        { kind: "CardPlayed", side: "N", card: ["C", 14] },
+        { kind: "DummyRevealed", side: "E", hand: DEAL["E"] },
+        { kind: "CardPlayed", side: "E", card: ["D", 14] },
+        { kind: "CardPlayed", side: "S", card: ["H", 14] },
+        { kind: "CardPlayed", side: "W", card: ["S", 14] },
+        { kind: "TrickCompleted", winner: "W" },
+    ];
+    // the rest of card play
+    for (const rank of RANKS) {
+        EXPECTED.push({ kind: "CardPlayed", side: "W", card: ["S", rank] });
+        EXPECTED.push({ kind: "CardPlayed", side: "N", card: ["C", rank] });
+        EXPECTED.push({ kind: "CardPlayed", side: "E", card: ["D", rank] });
+        EXPECTED.push({ kind: "CardPlayed", side: "S", card: ["H", rank] });
+        EXPECTED.push({ kind: "TrickCompleted", winner: "W" });
+    }
+    EXPECTED.push({
+        kind: "DealFinished",
+        tricksNS: 0,
+        tricksWE: 13,
+    });
+    assertEquals(events, EXPECTED);
+});

@@ -163,7 +163,7 @@ function scoreOvertricks(contract: FinalContract, isVuln: boolean, overTricks: n
             return overTricks * 400;
         }
     }
-    return 0;
+    throw new Error("AssertionError: unreachable");
 }
 
 function scoreContractSuccess(

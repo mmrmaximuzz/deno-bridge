@@ -37,10 +37,11 @@ Deno.test("filter provides deals that match given predicate", () => {
     assert(evalCardsHcp(deal["N"]) > 18);
 });
 
-Deno.test("impossible filter is cap-limited", () => {
+Deno.test("cap-limiting", () => {
     assertThrows(() =>
         generateHandWithFilter({
-            pred: (deal: Deal) => evalCardsHcp(deal["N"]) > 40,
+            pred: (deal: Deal) => evalCardsHcp(deal["N"]) > 40, // never be true
+            limit: 10000,
         })
     );
 });

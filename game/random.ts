@@ -57,14 +57,7 @@ export function generateHandWithFilter(f: DealFilter): Deal {
         if (!f.limit) {
             return DEFAULT_RETRIES;
         }
-
-        if (f.limit <= 0 || Math.trunc(f.limit) != f.limit) {
-            throw new Error(`AssertionError: bad limit for hand generation: ${f.limit}`);
-        }
-        if (f.limit > MAX_RETRIES) {
-            throw new Error(`AssertionError: too big limit for hand generation: ${f.limit}`);
-        }
-        return f.limit;
+        return Math.min(f.limit, MAX_RETRIES);
     })();
 
     while (limit--) {

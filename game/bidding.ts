@@ -16,7 +16,6 @@ export type BiddingResult = "inprogress" | "passout" | FinalContract;
 export interface Bidding {
     handle(bid: Bid): BiddingResult;
     turn(): Side;
-    getHistory(): [Side, Bid[]];
 }
 
 type ActiveContract = {
@@ -31,7 +30,6 @@ type BiddingState = {
     nsDeclares: Record<Denomination, "N" | "S" | null>;
     weDeclares: Record<Denomination, "W" | "E" | null>;
     activeContract: ActiveContract | null;
-    history: Bid[];
     dealer: Side;
 };
 
@@ -58,7 +56,6 @@ function newBiddingState(dealer: Side): BiddingState {
         weDeclares: { C: null, D: null, H: null, S: null, NT: null },
         activeContract: null,
         nrPasses: 0,
-        history: [],
         dealer,
     };
 }
@@ -75,7 +72,6 @@ class BiddingImpl implements Bidding {
     }
 
     acceptBid(bid: Bid): void {
-        this.state.history.push(bid);
         if (bid != "PASS") {
             // any non-pass bid clears passes
             this.state.nrPasses = 0;
@@ -252,10 +248,6 @@ class BiddingImpl implements Bidding {
 
     turn(): Side {
         return this.state.currentSide;
-    }
-
-    getHistory(): [Side, Bid[]] {
-        return [this.state.dealer, this.state.history];
     }
 }
 
