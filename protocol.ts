@@ -1,4 +1,4 @@
-import { Bid, Card } from "./game/types.ts";
+import { Bid, Card, Deal, Side } from "./game/types.ts";
 import { parseBid, parseCard } from "./parsing.ts";
 
 export type ClientEngineMessage =
@@ -90,3 +90,17 @@ export function parseClientData(data: unknown): ClientMessage | ClientParsingErr
             return `malformed message - unknown kind: ${obj.kind}`;
     }
 }
+
+export type ServerEngineResponse =
+    | { kind: "bid"; side: Side; bid: Bid; gen: number }
+    | { kind: "contract"; contract: string; leader: Side }
+    | { kind: "nextdeal"; reveal: Deal; dealer: Side; lead: [Side, Card] | null }
+    | { kind: "startplay"; dummy: Side; table: Card[] }
+    | { kind: "playcard"; side: Side; card: Card }
+    | { kind: "trick"; winner: Side };
+
+export type ServerMessage =
+    | { kind: "notify"; data: string }
+    | { kind: "error"; data: string }
+    | { kind: "chat"; data: string }
+    | { kind: "engine"; data: ServerEngineResponse };
