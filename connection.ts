@@ -2,9 +2,10 @@ import { createEngine, Engine, GameEvent } from "./game/engine.ts";
 import { Bid, Card, Deal, Side, Vulnerability } from "./game/types.ts";
 import { getAllSides, getPair, nextSide } from "./game/utils.ts";
 import { parseBid, parseCard } from "./parsing.ts";
-import { FinalContract, prettyPrintFinalContract } from "./game/bidding.ts";
+import { FinalContract } from "./game/bidding.ts";
 import { DealFilter, noFilter } from "./game/deal_filters.ts";
 import { generateHandWithFilter, getRandomSide, getRandomVulnerability } from "./game/random.ts";
+import { createPresenter, Presenter } from "./presenter.ts";
 
 type Nickname = string | null; // anonymous if null
 type Client = { conn: WebSocket; nick: Nickname };
@@ -34,6 +35,7 @@ class ConnectionManagerImpl implements ConnectionManager {
     game: Game;
     gen: number;
     tweaks: Tweaks;
+    presenter: Presenter;
 
     createNewGame(): Game {
         const dealer = getRandomSide();
@@ -51,18 +53,24 @@ class ConnectionManagerImpl implements ConnectionManager {
         };
     }
 
+    reload(): void {
+        this.game = this.createNewGame();
+        this.presenter = createPresenter();
+    }
+
     constructor(tweaks?: Tweaks) {
         this.clients = { W: null, N: null, E: null, S: null };
         this.gen = 0;
         this.tweaks = tweaks ? tweaks : { biddingOnly: false, nsOnly: false, filter: noFilter() };
         this.game = this.createNewGame();
+        this.presenter = createPresenter();
 
         if (this.tweaks.nsOnly) {
             this.passIfOpponents(this.game.dealer);
         }
     }
 
-    passIfOpponents(side: Side) {
+    passIfOpponents(side: Side): void {
         if (getPair(side) == "WE") {
             setTimeout(() => {
                 this.handleEngineBidMessage(null, side, "PASS");
@@ -73,14 +81,6 @@ class ConnectionManagerImpl implements ConnectionManager {
     die(msg: string): never {
         this.broadcastErrorMessage(msg);
         throw new Error(msg);
-    }
-
-    createNotification(notification: string): string {
-        return JSON.stringify({ kind: "notify", data: `server: ${notification}` });
-    }
-
-    createError(err: string): string {
-        return JSON.stringify({ kind: "error", data: `server: ${err}` });
     }
 
     createInit(side: Side, gen: number): string {
@@ -107,7 +107,7 @@ class ConnectionManagerImpl implements ConnectionManager {
 
     reportError(err: string, conn?: WebSocket): boolean {
         console.error(err);
-        conn?.send(this.createError(err));
+        conn?.send(this.presenter.error(err));
         return false;
     }
 
@@ -133,81 +133,50 @@ class ConnectionManagerImpl implements ConnectionManager {
             const client = this.clients[s];
             if (client) {
                 const line = s == side ? `[you]: ${text}` : `${side}${nickRepr}: ${text}`;
-                client.conn.send(JSON.stringify({
-                    kind: "chat",
-                    data: line,
-                }));
+                client.conn.send(this.presenter.chatmsg(line));
             }
         }
     }
 
-    broadcast(kind: string, message: unknown): void {
+    broadcast(message: string): void {
         for (const s of getAllSides()) {
             const client = this.clients[s];
             if (client) {
-                client.conn.send(JSON.stringify({
-                    kind,
-                    data: message,
-                }));
+                client.conn.send(message);
             }
         }
     }
 
     broadcastNotificationMessage(notification: string): void {
-        this.broadcast("notify", `server: ${notification}`);
+        this.broadcast(this.presenter.notification(`server: ${notification}`));
     }
 
-    broadcastErrorMessage(notification: string): void {
-        this.broadcast("error", `server error: ${notification}`);
+    broadcastErrorMessage(error: string): void {
+        this.broadcast(this.presenter.error(`server error: ${error}`));
     }
 
     broadcastBidMessage(side: Side, bid: Bid): void {
-        this.broadcast("engine", {
-            kind: "bid",
-            side,
-            bid,
-            gen: this.gen,
-        });
+        this.broadcast(this.presenter.bid(side, bid, this.gen));
     }
 
     broadcastContract(contract: FinalContract): void {
-        this.broadcast("engine", {
-            kind: "contract",
-            contract: prettyPrintFinalContract(contract),
-            leader: nextSide(contract.declarer),
-        });
+        this.broadcast(this.presenter.contract(contract));
     }
 
     broadcastDealFinished(oldgame: Game, lead: [Side, Card] | null): void {
-        this.broadcast("engine", {
-            kind: "nextdeal",
-            reveal: oldgame.deal,
-            dealer: oldgame.dealer,
-            lead,
-        });
+        this.broadcast(this.presenter.finish(oldgame.deal, oldgame.dealer, lead));
     }
 
     broadcastStartPlay(dummy: Side, table: Card[]) {
-        this.broadcast("engine", {
-            kind: "startplay",
-            dummy,
-            table,
-        });
+        this.broadcast(this.presenter.startplay(dummy, table));
     }
 
     broadcastPlayCard(side: Side, card: Card) {
-        this.broadcast("engine", {
-            kind: "playcard",
-            side,
-            card,
-        });
+        this.broadcast(this.presenter.playcard(side, card));
     }
 
     broadcastTrick(winner: Side) {
-        this.broadcast("engine", {
-            kind: "trick",
-            winner,
-        });
+        this.broadcast(this.presenter.trick(winner));
     }
 
     handleInitMessage(conn: WebSocket, side: Side, nick: Nickname): boolean {
@@ -241,7 +210,7 @@ class ConnectionManagerImpl implements ConnectionManager {
                     console.error(response.err);
                     throw new Error("AssertionError: error happened on internal bid message");
                 }
-                conn.send(this.createNotification(`engine: ${response.err}`));
+                conn.send(this.presenter.notification(`engine: ${response.err}`));
                 return true;
 
             case "ok": {
@@ -262,7 +231,7 @@ class ConnectionManagerImpl implements ConnectionManager {
                             this.broadcastDealFinished(this.game, null);
 
                             // passout finishes the game, reset the state
-                            this.game = this.createNewGame();
+                            this.reload();
                             if (this.tweaks.nsOnly) {
                                 this.passIfOpponents(this.game.dealer);
                             }
@@ -273,7 +242,7 @@ class ConnectionManagerImpl implements ConnectionManager {
                             if (this.tweaks.biddingOnly) {
                                 // finish the game if bidding
                                 this.broadcastDealFinished(this.game, null);
-                                this.game = this.createNewGame();
+                                this.reload();
                                 if (this.tweaks.nsOnly) {
                                     this.passIfOpponents(this.game.dealer);
                                 }
@@ -306,7 +275,7 @@ class ConnectionManagerImpl implements ConnectionManager {
 
         switch (response.kind) {
             case "err":
-                conn.send(this.createNotification(`engine: ${response.err}`));
+                conn.send(this.presenter.notification(`engine: ${response.err}`));
                 return true;
 
             case "ok": {
@@ -325,7 +294,7 @@ class ConnectionManagerImpl implements ConnectionManager {
                         }
                         case "DealFinished":
                             this.broadcastDealFinished(this.game, this.game.oplead);
-                            this.game = this.createNewGame();
+                            this.reload();
                             break;
                         default:
                             this.die(`AssertionError: impossible cardplay response ${event}`);
@@ -417,11 +386,11 @@ class ConnectionManagerImpl implements ConnectionManager {
         if (this.clients[side]) {
             // warn the connected user
             this.clients[side].conn.send(
-                this.createNotification("someone tried to reuse your invite link"),
+                this.presenter.notification("someone tried to reuse your invite link"),
             );
             // reject the new connection outside of the current event handling
             setTimeout(() => {
-                sock.send(this.createNotification("this invite link is already used, abort"));
+                sock.send(this.presenter.notification("this invite link is already used, abort"));
                 sock.close();
             });
             return;
