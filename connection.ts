@@ -1,11 +1,11 @@
 import { createEngine, Engine, GameEvent } from "./game/engine.ts";
 import { Bid, Card, Deal, Side, Vulnerability } from "./game/types.ts";
 import { getAllSides, getPair, nextSide } from "./game/utils.ts";
-import { parseBid, parseCard } from "./parsing.ts";
 import { FinalContract } from "./game/bidding.ts";
 import { DealFilter, noFilter } from "./game/deal_filters.ts";
 import { generateHandWithFilter, getRandomSide, getRandomVulnerability } from "./game/random.ts";
 import { createPresenter, Presenter } from "./presenter.ts";
+import { ClientEngineMessage, parseClientData } from "./protocol.ts";
 
 type Nickname = string | null; // anonymous if null
 type Client = { conn: WebSocket; nick: Nickname };
@@ -188,14 +188,7 @@ class ConnectionManagerImpl implements ConnectionManager {
         return true;
     }
 
-    handleEngineBidMessage(conn: WebSocket | null, side: Side, data: unknown): boolean {
-        const bid = parseBid(data);
-        if (!bid) {
-            if (conn) {
-                return this.reportError(`failed to parse bid data: ${JSON.stringify(data)}`, conn);
-            } else throw new Error("AssertionError: failed to make internal bid");
-        }
-
+    handleEngineBidMessage(conn: WebSocket | null, side: Side, bid: Bid): boolean {
         const response = this.game.engine.handle({
             side,
             data: {
@@ -259,12 +252,7 @@ class ConnectionManagerImpl implements ConnectionManager {
         }
     }
 
-    handleEngineCardPlay(conn: WebSocket, side: Side, rawCard: unknown): boolean {
-        const card = parseCard(rawCard);
-        if (!card) {
-            return this.reportError(`${side}: bad card: ${JSON.stringify(rawCard)}`, conn);
-        }
-
+    handleEngineCardPlay(conn: WebSocket, side: Side, card: Card): boolean {
         const response = this.game.engine.handle({
             side,
             data: {
@@ -309,72 +297,43 @@ class ConnectionManagerImpl implements ConnectionManager {
     handleEngineMessage(
         conn: WebSocket,
         side: Side,
-        data: { kind?: unknown; bid?: unknown; nickname?: unknown; card?: unknown },
-    ): boolean {
+        data: ClientEngineMessage,
+    ): void {
         switch (data.kind) {
             case "bid":
-                return this.handleEngineBidMessage(conn, side, data.bid);
+                this.handleEngineBidMessage(conn, side, data.bid);
+                break;
             case "cardplay":
-                return this.handleEngineCardPlay(conn, side, data.card);
+                this.handleEngineCardPlay(conn, side, data.card);
+                break;
             case "init": {
                 const nick = (typeof data.nickname == "string" && data.nickname)
                     ? data.nickname
                     : null;
-                return this.handleInitMessage(conn, side, nick);
+                this.handleInitMessage(conn, side, nick);
+                break;
             }
-            default:
-                return this.reportError(`${side}: bad engine message kind: ${data.kind}`, conn);
         }
     }
 
-    handleMessageInternal(
-        conn: WebSocket,
-        side: Side,
-        obj: { kind?: string; data?: unknown },
-    ): boolean {
-        switch (obj.kind) {
-            case "chat":
-                if (typeof obj.data != "string") {
-                    return this.reportError(`${side}: bad chat data: ${obj.data}`, conn);
-                }
-                this.broadcastChatMessage(side, obj.data);
-                return true;
-            case "engine":
-                if (typeof obj.data != "object" || obj.data == null) {
-                    return this.reportError(`${side}: bad engine data: ${obj.data}`, conn);
-                }
-                return this.handleEngineMessage(conn, side, obj.data);
-            default:
-                return this.reportError(`${side}: bad message kind: ${obj.kind}`, conn);
-        }
+    handleChatMessage(side: Side, message: string): void {
+        this.broadcastChatMessage(side, message);
     }
 
     handleMessage(conn: WebSocket, side: Side, data: unknown): void {
-        if (typeof data != "string") {
-            this.reportError(`${side}: bad message type from websocket: ${typeof data}`, conn);
-            conn.close();
+        const input = parseClientData(data);
+        if (typeof input == "string") {
+            this.reportError(input, conn);
             return;
         }
 
-        let rawObject: unknown = null;
-        try {
-            rawObject = JSON.parse(data);
-        } catch (e) {
-            if (e instanceof SyntaxError) {
-                this.reportError(`${side}: failed to parse JSON from message: ${data}`);
+        switch (input.kind) {
+            case "chat":
+                this.handleChatMessage(side, input.data);
                 return;
-            }
-            throw e;
-        }
-
-        if (typeof rawObject != "object" || rawObject == null) {
-            this.reportError(`${side}: bad message type: ${data}`, conn);
-            return;
-        }
-
-        const res = this.handleMessageInternal(conn, side, rawObject);
-        if (!res) {
-            console.warn(`handleMessage: failed to process message: ${JSON.stringify(data)}`);
+            case "engine":
+                this.handleEngineMessage(conn, side, input.data);
+                return;
         }
     }
 
