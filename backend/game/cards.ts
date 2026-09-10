@@ -1,6 +1,16 @@
-import { Card, Deal, Denomination, Rank, Side, Suit } from "../../shared/types.ts";
+import {
+    Card,
+    Deal,
+    Denomination,
+    getAllSides,
+    getPartner,
+    nextSide,
+    Rank,
+    Side,
+    Suit,
+} from "../../shared/types.ts";
 
-import { allDifferent, compare2Tuples, getAllSides, getPartner, nextSide } from "./utils.ts";
+import { allDifferent, compare2Tuples } from "./utils.ts";
 
 export type Trick = Record<Side, Card>;
 export type CardPlayResponse =

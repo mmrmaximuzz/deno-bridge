@@ -1,9 +1,8 @@
 import { assert, assertEquals, assertExists, assertThrows } from "@std/assert";
 
-import { Bid, Side } from "../../shared/types.ts";
+import { Bid, getAllSides, getPartner, nextSide, Side } from "../../shared/types.ts";
 
 import { __test__, BiddingResult, createBidding, InvalidBid } from "./bidding.ts";
-import { getAllSides, getPartner, nextSide } from "./utils.ts";
 
 const denominationHigher = __test__.denominationHigher;
 const contractHigher = __test__.contractHigher;

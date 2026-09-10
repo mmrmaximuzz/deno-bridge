@@ -1,8 +1,7 @@
 import { serveDir } from "@std/http/file-server";
 
-import { Side } from "../shared/types.ts";
+import { getAllSides, Side } from "../shared/types.ts";
 
-import { getAllSides } from "./game/utils.ts";
 import { ConnectionManager, createConnectionManager, Tweaks } from "./connection.ts";
 import { noFilter, simpleFilterNSHcp, simpleFilterNSLongsuit } from "./game/deal_filters.ts";
 

@@ -1,8 +1,7 @@
 import { ServerMessage } from "../shared/protocol.ts";
-import { Bid, Card, Deal, Side } from "../shared/types.ts";
+import { Bid, Card, Deal, getAllSides, nextSide, Side } from "../shared/types.ts";
 
 import { FinalContract } from "./game/bidding.ts";
-import { getAllSides, nextSide } from "./game/utils.ts";
 
 function prettyPrintFinalContract(contract: FinalContract) {
     const level = contract.contract.level;

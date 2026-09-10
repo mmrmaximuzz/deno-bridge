@@ -1,7 +1,6 @@
-import { Level, Vulnerability } from "../../shared/types.ts";
+import { getPair, Level, Vulnerability } from "../../shared/types.ts";
 
 import { FinalContract } from "./bidding.ts";
-import { getPair } from "./utils.ts";
 
 function levelToTricks(level: Level): number {
     return level + 6;

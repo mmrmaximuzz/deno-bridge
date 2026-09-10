@@ -1,6 +1,15 @@
-import { Bid, Contract, ContractStatus, Denomination, Side } from "../../shared/types.ts";
+import {
+    Bid,
+    Contract,
+    ContractStatus,
+    Denomination,
+    getPair,
+    nextSide,
+    samePairs,
+    Side,
+} from "../../shared/types.ts";
 
-import { getPair, nextSide, samePairs, sideNSDynamicCast, sideWEDynamicCast } from "./utils.ts";
+import { sideNSDynamicCast, sideWEDynamicCast } from "./utils.ts";
 
 export type FinalContract = {
     contract: Contract;

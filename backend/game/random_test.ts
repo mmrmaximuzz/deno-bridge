@@ -1,11 +1,11 @@
 import { assert } from "@std/assert/assert";
+import { assertThrows } from "@std/assert/throws";
+import { assertEquals } from "@std/assert/equals";
 
 import { Card, Deal, Rank, Suit } from "../../shared/types.ts";
 
 import { evalCardsHcp } from "./hcp.ts";
 import { generateHandWithFilter, getRandomDeal } from "./random.ts";
-import { assertThrows } from "@std/assert/throws";
-import { assertEquals } from "@std/assert/equals";
 
 Deno.test("random deal contains right cards", () => {
     // all the deck

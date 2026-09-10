@@ -1,8 +1,7 @@
 import { ClientEngineMessage, parseClientData } from "../shared/protocol.ts";
-import { Bid, Card, Deal, Side, Vulnerability } from "../shared/types.ts";
+import { Bid, Card, Deal, getPair, nextSide, Side, Vulnerability } from "../shared/types.ts";
 
 import { createEngine, Engine, GameEvent } from "./game/engine.ts";
-import { getPair, nextSide } from "./game/utils.ts";
 import { FinalContract } from "./game/bidding.ts";
 import { DealFilter, noFilter } from "./game/deal_filters.ts";
 import { generateHandWithFilter, getRandomSide, getRandomVulnerability } from "./game/random.ts";

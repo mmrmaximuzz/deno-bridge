@@ -1,8 +1,16 @@
-import { Bid, Card, Deal, Pair, Side, Vulnerability } from "../../shared/types.ts";
+import {
+    Bid,
+    Card,
+    Deal,
+    getPair,
+    getPartner,
+    Pair,
+    Side,
+    Vulnerability,
+} from "../../shared/types.ts";
 
 import { Bidding, createBidding, FinalContract, InvalidBid } from "./bidding.ts";
 import { CardPlay, createCardPlay } from "./cards.ts";
-import { getPair, getPartner } from "./utils.ts";
 
 export type GameEvent =
     | { kind: "BidMade"; side: Side; bid: Bid }
