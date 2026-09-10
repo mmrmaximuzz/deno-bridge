@@ -786,12 +786,18 @@ function labelPlayerSides(mySide: Side, dealer: Side, vuln: Vulnerability): void
     setMovePosition(getRelativePositionForSide(dealer, mySide));
 }
 
-function playNotificationSound() {
-    new Audio("mixkit-cool-interface-click-tone-2568.wav").play();
+function playSound(sound: string): void {
+    new Audio(sound).play().catch((_err) => {
+        // ignore sound play exceptions, they could be caused by blocked autoplay
+    });
 }
 
-function playPopSound() {
-    new Audio("mixkit-long-pop-2358.wav").play();
+function playNotificationSound(): void {
+    playSound("mixkit-cool-interface-click-tone-2568.wav");
+}
+
+function playPopSound(): void {
+    playSound("mixkit-long-pop-2358.wav");
 }
 
 function processInitMessage(
