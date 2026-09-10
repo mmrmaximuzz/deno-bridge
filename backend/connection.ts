@@ -1,5 +1,6 @@
-import { ClientEngineMessage, parseClientData } from "../shared/protocol.ts";
 import { Bid, Card, Deal, getPair, nextSide, Side, Vulnerability } from "../shared/types.ts";
+import { ClientEngineMessage } from "../shared/protocol.ts";
+import { parseClientMessage } from "../shared/parsing.ts";
 
 import { createEngine, Engine, GameEvent } from "./game/engine.ts";
 import { FinalContract } from "./game/bidding.ts";
@@ -244,7 +245,7 @@ class ConnectionManagerImpl implements ConnectionManager {
     }
 
     handleMessage(conn: WebSocket, side: Side, data: unknown): void {
-        const input = parseClientData(data);
+        const input = parseClientMessage(data);
         if (typeof input == "string") {
             this.publisher.error(input, side);
             return;

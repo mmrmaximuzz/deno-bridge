@@ -3,8 +3,6 @@ import {
     Card,
     Contract,
     Deal,
-    Denomination,
-    Level,
     nextSide,
     Rank,
     Side,
@@ -12,7 +10,21 @@ import {
     Vulnerability,
 } from "../shared/types.ts";
 
-type AuctionHistory = Bid[];
+import {
+    parseBid,
+    parseBids,
+    parseCard,
+    parseDenomination,
+    parseFullDeal,
+    parseHand,
+    parseLead,
+    parseLevel,
+    parseRank,
+    parseSide,
+    parseSuit,
+    parseVulnerability,
+} from "../shared/parsing.ts";
+
 type Position = "bottom" | "left" | "top" | "right";
 
 interface App {
@@ -41,200 +53,6 @@ function assertGetElementsByClassName(name: string): HTMLCollectionOf<Element> {
         throw new Error(`failed to find html element for class ${name}`);
     }
     return elem;
-}
-
-function parseSide(raw: unknown): Side | null {
-    switch (raw) {
-        case "W":
-        case "N":
-        case "E":
-        case "S":
-            return raw;
-        default:
-            return null;
-    }
-}
-
-function parseLevel(raw: unknown): Level | null {
-    switch (raw) {
-        case 1:
-        case 2:
-        case 3:
-        case 4:
-        case 5:
-        case 6:
-        case 7:
-            return raw;
-        default:
-            return null;
-    }
-}
-
-function parseDenomination(raw: unknown): Denomination | null {
-    switch (raw) {
-        case "C":
-        case "D":
-        case "H":
-        case "S":
-        case "NT":
-            return raw;
-        default:
-            return null;
-    }
-}
-
-function parseBid(raw: unknown): Bid | null {
-    switch (raw) {
-        case "PASS":
-        case "X":
-        case "XX":
-            return raw;
-        default:
-            if (!raw || typeof raw != "object" || !("level" in raw && "denom" in raw)) {
-                return null;
-            } else {
-                const level = parseLevel(raw.level);
-                const denom = parseDenomination(raw.denom);
-                if (!level || !denom) {
-                    return null;
-                }
-                return { level, denom };
-            }
-    }
-}
-
-function parseAuctionHistory(raw: unknown): AuctionHistory | null {
-    const result: AuctionHistory = [];
-
-    if (!(raw instanceof Array)) {
-        return null;
-    }
-    for (const rawItem of raw) {
-        const bid = parseBid(rawItem);
-        if (!bid) {
-            return null;
-        }
-        result.push(bid);
-    }
-    return result;
-}
-
-function parseSuit(raw: unknown): Suit | null {
-    switch (raw) {
-        case "C":
-        case "D":
-        case "H":
-        case "S":
-            return raw;
-        default:
-            return null;
-    }
-}
-
-function parseRank(raw: unknown): Rank | null {
-    switch (raw) {
-        case 2:
-        case 3:
-        case 4:
-        case 5:
-        case 6:
-        case 7:
-        case 8:
-        case 9:
-        case 10:
-        case 11:
-        case 12:
-        case 13:
-        case 14:
-            return raw;
-        default:
-            return null;
-    }
-}
-
-function parseCard(rawCard: unknown): Card | null {
-    if (!(rawCard instanceof Array) || rawCard.length != 2) {
-        return null;
-    }
-    const [rawSuit, rawRank] = rawCard;
-    const suit = parseSuit(rawSuit);
-    const rank = parseRank(rawRank);
-    if (suit == null || rank == null) {
-        return null;
-    }
-    return [suit, rank];
-}
-
-function parseLead(rawLead: unknown): [Side, Card] | null {
-    if (!(rawLead instanceof Array) || rawLead.length != 2) {
-        return null;
-    }
-    const [rawSide, rawCard] = rawLead;
-    const side = parseSide(rawSide);
-    const card = parseCard(rawCard);
-    if (!side || !card) {
-        return null;
-    }
-    return [side, card];
-}
-
-function parseHand(rawHand: unknown): Card[] | null {
-    if (!(rawHand instanceof Array)) {
-        return null;
-    }
-
-    const result: Card[] = [];
-    for (const rawItem of rawHand) {
-        const card = parseCard(rawItem);
-        if (!card) {
-            return null;
-        }
-        result.push(card);
-    }
-    return result.sort((a, b) => {
-        if (a[0] > b[0]) {
-            return 1;
-        }
-        if (a[0] < b[0]) {
-            return -1;
-        }
-        if (a[1] > b[1]) {
-            return 1;
-        }
-        if (a[1] < b[1]) {
-            return -1;
-        }
-        return 0;
-    }).reverse();
-}
-
-function parseFullDeal(rawDeal: unknown): Deal | null {
-    if (
-        !rawDeal || typeof rawDeal != "object" || !("W" in rawDeal) || !("N" in rawDeal) ||
-        !("E" in rawDeal) || !("S" in rawDeal)
-    ) {
-        return null;
-    }
-    const W = parseHand(rawDeal.W);
-    const N = parseHand(rawDeal.N);
-    const E = parseHand(rawDeal.E);
-    const S = parseHand(rawDeal.S);
-    if (!W || !N || !E || !S) {
-        return null;
-    }
-    return { W, N, E, S };
-}
-
-function parseVulnerability(raw: unknown): Vulnerability | null {
-    switch (raw) {
-        case "NONE":
-        case "NS":
-        case "WE":
-        case "BOTH":
-            return raw;
-        default:
-            return null;
-    }
 }
 
 function contractGreaterOrEqual(b1: Contract, b2: Contract): boolean {
@@ -579,7 +397,7 @@ function handleInitialState(
 
     const [rawDealer, rawHistory] = raw.bidHistory;
     const dealer = parseSide(rawDealer);
-    const history = parseAuctionHistory(rawHistory);
+    const history = parseBids(rawHistory);
     const cards = parseHand(raw.deal);
     const vuln = parseVulnerability(raw.vuln);
     if (!dealer || !history || !cards || !vuln) {
