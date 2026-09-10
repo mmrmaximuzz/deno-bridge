@@ -1,38 +1,33 @@
-"use strict";
+import {
+    Bid,
+    Card,
+    Contract,
+    Deal,
+    Denomination,
+    Level,
+    nextSide,
+    Rank,
+    Side,
+    Suit,
+    Vulnerability,
+} from "../shared/types.ts";
 
-/**
- * @typedef { "W" | "N" | "E" | "S" } Side - player side
- * @typedef { 1 | 2 | 3 | 4 | 5 | 6 | 7 } Level - contract level
- * @typedef { "C" | "D" | "H" | "S" | "NT" } Denomination - contract denomination
- * @typedef { { level: Level; denom: Denomination } } Contract - contract bid
- * @typedef { "PASS" | "X" | "XX" | Contract } Bid - auction bid
- * @typedef { Bid[] } AuctionHistory - history of bids
- * @typedef { "C" | "D" | "H" | "S" } Suit - card suit
- * @typedef { 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 } Rank - card suit
- * @typedef { [Suit, Rank] } Card - playing card
- * @typedef { Record<Side, Card[]> } Deal - full deal
- * @typedef { "NONE" | "NS" | "WE" | "BOTH" } Vulnerability - vulnerability state
- * @typedef { "bottom" | "left" | "top" | "right" } Position - table positions
- *
- * @typedef {object} App - application data
- * @property {WebSocket} sock - WebSocket connection to the game server
- * @property {[Side, Bid, number][]} pending - pending updates if any
- * @property {string | null} nickname - the player's nick name
- * @property {Side | null} mySide - current's player table position
- * @property {boolean} needFlushTable - whether we need to flush table or not
- * @property {number} gen - current generation of the engine state
- */
+type AuctionHistory = Bid[];
+type Position = "bottom" | "left" | "top" | "right";
 
-/** @type {Suit[]} */
-const ALL_SUITS_ORDERED = ["S", "H", "D", "C"];
-/** @type {Position[]} */
-const ALL_POSITIONS = ["bottom", "left", "top", "right"];
+interface App {
+    sock: WebSocket;
+    pending: [Side, Bid, number][];
+    nickname: string | null;
+    mySide: Side | null;
+    needFlushTable: boolean;
+    gen: number;
+}
 
-/**
- * @param {string} id
- * @return {HTMLElement}
- */
-function assertGetElementById(id) {
+const ALL_SUITS_ORDERED: Suit[] = ["S", "H", "D", "C"];
+const ALL_POSITIONS: Position[] = ["bottom", "left", "top", "right"];
+
+function assertGetElementById(id: string): HTMLElement {
     const elem = document.getElementById(id);
     if (!elem) {
         throw new Error(`failed to find html element for id ${id}`);
@@ -40,11 +35,7 @@ function assertGetElementById(id) {
     return elem;
 }
 
-/**
- * @param {string} name
- * @return {HTMLCollectionOf<Element>}
- */
-function assertGetElementsByClassName(name) {
+function assertGetElementsByClassName(name: string): HTMLCollectionOf<Element> {
     const elem = document.getElementsByClassName(name);
     if (!elem) {
         throw new Error(`failed to find html element for class ${name}`);
@@ -52,30 +43,7 @@ function assertGetElementsByClassName(name) {
     return elem;
 }
 
-/**
- * @param {Side} side
- * @return {Side}
- */
-function nextSide(side) {
-    switch (side) {
-        case "W":
-            return "N";
-        case "N":
-            return "E";
-        case "E":
-            return "S";
-        case "S":
-            return "W";
-        default:
-            throw new Error("unreachable");
-    }
-}
-
-/**
- * @param {unknown} raw - input object
- * @return {Side | null}
- */
-function parseSide(raw) {
+function parseSide(raw: unknown): Side | null {
     switch (raw) {
         case "W":
         case "N":
@@ -87,11 +55,7 @@ function parseSide(raw) {
     }
 }
 
-/**
- * @param {unknown} raw - input object
- * @return {Level | null}
- */
-function parseLevel(raw) {
+function parseLevel(raw: unknown): Level | null {
     switch (raw) {
         case 1:
         case 2:
@@ -106,11 +70,7 @@ function parseLevel(raw) {
     }
 }
 
-/**
- * @param {unknown} raw - input object
- * @return {Denomination | null}
- */
-function parseDenomination(raw) {
+function parseDenomination(raw: unknown): Denomination | null {
     switch (raw) {
         case "C":
         case "D":
@@ -123,11 +83,7 @@ function parseDenomination(raw) {
     }
 }
 
-/**
- * @param {unknown} raw - raw data to parse
- * @return {Bid | null}
- */
-function parseBid(raw) {
+function parseBid(raw: unknown): Bid | null {
     switch (raw) {
         case "PASS":
         case "X":
@@ -147,13 +103,8 @@ function parseBid(raw) {
     }
 }
 
-/**
- * @param {unknown} raw - raw data to parse
- * @return {AuctionHistory | null}
- */
-function parseAuctionHistory(raw) {
-    /** @type AuctionHistory */
-    const result = [];
+function parseAuctionHistory(raw: unknown): AuctionHistory | null {
+    const result: AuctionHistory = [];
 
     if (!(raw instanceof Array)) {
         return null;
@@ -168,11 +119,7 @@ function parseAuctionHistory(raw) {
     return result;
 }
 
-/**
- * @param {unknown} raw
- * @return {Suit | null}
- */
-function parseSuit(raw) {
+function parseSuit(raw: unknown): Suit | null {
     switch (raw) {
         case "C":
         case "D":
@@ -184,11 +131,7 @@ function parseSuit(raw) {
     }
 }
 
-/**
- * @param {unknown} raw
- * @return {Rank | null}
- */
-function parseRank(raw) {
+function parseRank(raw: unknown): Rank | null {
     switch (raw) {
         case 2:
         case 3:
@@ -209,11 +152,7 @@ function parseRank(raw) {
     }
 }
 
-/**
- * @param {unknown} rawCard - card data from server
- * @return {Card | null}
- */
-function parseCard(rawCard) {
+function parseCard(rawCard: unknown): Card | null {
     if (!(rawCard instanceof Array) || rawCard.length != 2) {
         return null;
     }
@@ -226,11 +165,7 @@ function parseCard(rawCard) {
     return [suit, rank];
 }
 
-/**
- * @param {unknown} rawLead - lead data from server
- * @return {[Side, Card] | null}
- */
-function parseLead(rawLead) {
+function parseLead(rawLead: unknown): [Side, Card] | null {
     if (!(rawLead instanceof Array) || rawLead.length != 2) {
         return null;
     }
@@ -243,17 +178,12 @@ function parseLead(rawLead) {
     return [side, card];
 }
 
-/**
- * @param {unknown} rawHand - hand data from server
- * @return {Card[] | null}
- */
-function parseHand(rawHand) {
+function parseHand(rawHand: unknown): Card[] | null {
     if (!(rawHand instanceof Array)) {
         return null;
     }
 
-    /** @type {Card[]} */
-    const result = [];
+    const result: Card[] = [];
     for (const rawItem of rawHand) {
         const card = parseCard(rawItem);
         if (!card) {
@@ -278,11 +208,7 @@ function parseHand(rawHand) {
     }).reverse();
 }
 
-/**
- * @param {unknown} rawDeal - deal data from server
- * @return {Deal | null}
- */
-function parseFullDeal(rawDeal) {
+function parseFullDeal(rawDeal: unknown): Deal | null {
     if (
         !rawDeal || typeof rawDeal != "object" || !("W" in rawDeal) || !("N" in rawDeal) ||
         !("E" in rawDeal) || !("S" in rawDeal)
@@ -299,11 +225,7 @@ function parseFullDeal(rawDeal) {
     return { W, N, E, S };
 }
 
-/**
- * @param {unknown} raw - raw input data
- * @return {Vulnerability | null}
- */
-function parseVulnerability(raw) {
+function parseVulnerability(raw: unknown): Vulnerability | null {
     switch (raw) {
         case "NONE":
         case "NS":
@@ -315,12 +237,7 @@ function parseVulnerability(raw) {
     }
 }
 
-/**
- * @param {Contract} b1 - 1st operand of >=
- * @param {Contract} b2 - 2nd operand of >=
- * @return {boolean}
- */
-function contractGreaterOrEqual(b1, b2) {
+function contractGreaterOrEqual(b1: Contract, b2: Contract): boolean {
     if (b1.level > b2.level) {
         return true;
     }
@@ -337,11 +254,7 @@ function contractGreaterOrEqual(b1, b2) {
     return false;
 }
 
-/**
- * @param {Suit} suit - suit to print
- * @return {[string, string]}
- */
-function suitPrettyPrint(suit) {
+function suitPrettyPrint(suit: Suit): [string, string] {
     switch (suit) {
         case "C":
             return ["♣", "suit-c"];
@@ -356,11 +269,7 @@ function suitPrettyPrint(suit) {
     }
 }
 
-/**
- * @param {Bid} bid - bid to print
- * @return {[string, string | undefined]}
- */
-function bidPrettyText(bid) {
+function bidPrettyText(bid: Bid): [string, string | undefined] {
     if (typeof bid == "string") {
         return [bid, undefined];
     }
@@ -382,10 +291,7 @@ function bidPrettyText(bid) {
     return [`${bid.level}${prettyDenom}`, style];
 }
 
-/**
- * @return {HTMLTableElement}
- */
-function assertGetAuctionHistory() {
+function assertGetAuctionHistory(): HTMLTableElement {
     const history = assertGetElementById("auction-history");
     if (!(history instanceof HTMLTableElement)) {
         throw new Error("bad type");
@@ -393,11 +299,7 @@ function assertGetAuctionHistory() {
     return history;
 }
 
-/**
- * @param {Side} dealer - the dealer in this bidding
- * @return {void}
- */
-function auctionHistorySetDealer(dealer) {
+function auctionHistorySetDealer(dealer: Side): void {
     const history = assertGetAuctionHistory();
 
     // initialize the first row
@@ -417,11 +319,7 @@ function auctionHistorySetDealer(dealer) {
     }
 }
 
-/**
- * @param {Bid} bid - bid
- * @return {void}
- */
-function auctionHistoryAdd(bid) {
+function auctionHistoryAdd(bid: Bid): void {
     const history = assertGetAuctionHistory();
 
     // check if the last row is full
@@ -452,22 +350,12 @@ const ALL_CARDS_PRETTY = {
     C: ["🃒", "🃓", "🃔", "🃕", "🃖", "🃗", "🃘", "🃙", "🃚", "🃛", "🃝", "🃞", "🃑"],
 };
 
-/**
- * @param {Rank} rank
- * @param {Suit} suit
- * @return {string}
- */
-function cardPrettyPrint(rank, suit) {
+function cardPrettyPrint(rank: Rank, suit: Suit): string {
     const rankOffset = rank - 2;
     return ALL_CARDS_PRETTY[suit][rankOffset];
 }
 
-/**
- * @param {Side} side - side to find position to
- * @param {Side} playerSide - the current Player
- * @return {Position} table position
- */
-function getRelativePositionForSide(side, playerSide) {
+function getRelativePositionForSide(side: Side, playerSide: Side): Position {
     // the player is always in the "bottom" position
     let currSide = playerSide;
     for (const pos of ALL_POSITIONS) {
@@ -479,10 +367,7 @@ function getRelativePositionForSide(side, playerSide) {
     throw new Error("unreachable");
 }
 
-/**
- * @param {Position} [pos] - position to set
- */
-function setMovePosition(pos) {
+function setMovePosition(pos: Position | null) {
     for (const p of ALL_POSITIONS) {
         if (p == pos) {
             assertGetElementById(`${p}-side`).style.border = "1px solid orange";
@@ -492,10 +377,7 @@ function setMovePosition(pos) {
     }
 }
 
-/**
- * @return {void}
- */
-function resetUI() {
+function resetUI(): void {
     const auctionHistory = assertGetAuctionHistory();
 
     // remove all items from bid history except the header
@@ -523,23 +405,14 @@ function resetUI() {
     // flush the table and move markers
     flushTable();
     resetTrickCount();
-    setMovePosition();
+    setMovePosition(null);
 }
 
-/**
- * @param {string} position - player position to erase
- * @return {void}
- */
-function removePlayerHand(position) {
+function removePlayerHand(position: string): void {
     assertGetElementById(`${position}-hand`).replaceChildren();
 }
 
-/**
- * @param {string} position - player position to remove card
- * @param {Card} card - player card to remove
- * @return {boolean}
- */
-function removeCardFromPlayerHand(position, card) {
+function removeCardFromPlayerHand(position: string, card: Card): boolean {
     const nodes = assertGetElementById(`${position}-hand`).children.item(0)?.childNodes;
     if (!nodes) {
         // this hand is hidden for this player
@@ -567,13 +440,7 @@ function removeCardFromPlayerHand(position, card) {
     return false;
 }
 
-/**
- * @param {Side} mySide - the client's side
- * @param {Side} side - player side to remove card
- * @param {Card} card - player card to remove
- * @return {string | null} - final table position
- */
-function tryRemoveCardFromHand(mySide, side, card) {
+function tryRemoveCardFromHand(mySide: Side, side: Side, card: Card): string | null {
     let currSide = mySide;
     for (const pos of ALL_POSITIONS) {
         if (currSide == side) {
@@ -590,10 +457,7 @@ function tryRemoveCardFromHand(mySide, side, card) {
     return null;
 }
 
-/**
- * @param {Side} side
- */
-function increaseTrickCount(side) {
+function increaseTrickCount(side: Side) {
     const elem = (() => {
         switch (side) {
             case "W":
@@ -621,13 +485,7 @@ function flushTable() {
     }
 }
 
-/**
- * @param {App} app - application state
- * @param {string} pos - the table position
- * @param {Card} card - player card to place to table
- * @return {void}
- */
-function placeCardToTable(app, pos, card) {
+function placeCardToTable(app: App, pos: string, card: Card): void {
     if (app.needFlushTable) {
         flushTable();
         app.needFlushTable = false;
@@ -648,13 +506,7 @@ function placeCardToTable(app, pos, card) {
     cell.appendChild(cardHolderElem);
 }
 
-/**
- * @param {App} app - the application state
- * @param {Side} side - player side to remove card
- * @param {Card} card - player card to remove
- * @return {void}
- */
-function moveCardFromHandToTable(app, side, card) {
+function moveCardFromHandToTable(app: App, side: Side, card: Card): void {
     if (!app.mySide) {
         printErrorMessage("app side is not set on moveCardFromHandToTable");
         return;
@@ -669,28 +521,19 @@ function moveCardFromHandToTable(app, side, card) {
     placeCardToTable(app, pos, card);
 }
 
-/**
- * @param {App} app - application data
- * @param {Suit} suit - card's suit
- * @param {Rank} rank - card's rank
- * @return {void}
- */
-function handleCardClick(app, suit, rank) {
+function handleCardClick(app: App, suit: Suit, rank: Rank): void {
     app.sock.send(createCardPlayMessage(suit, rank));
 }
 
-/**
- * @param {App} app - application data
- * @param {[Suit, Rank][]} hand - player hand to display
- * @param {string} position - player position to display
- * @param {boolean} [makeClickable] - whether to make cards clickable or not
- * @return {void}
- */
-function displayPlayerHand(app, hand, position, makeClickable) {
+function displayPlayerHand(
+    app: App,
+    hand: [Suit, Rank][],
+    position: string,
+    makeClickable: boolean,
+): void {
     const bHandElem = assertGetElementById(`${position}-hand`);
 
-    /** @type {Record<Suit, [Rank, string][]>} */
-    const template = {
+    const template: Record<Suit, [Rank, string][]> = {
         S: [],
         H: [],
         D: [],
@@ -724,13 +567,11 @@ function displayPlayerHand(app, hand, position, makeClickable) {
     bHandElem.appendChild(handDiv);
 }
 
-/**
- * @param {App} app - application data
- * @param {Side} side - the player's side
- * @param {{ phase?: unknown; bidHistory?: unknown; deal?: unknown; vuln?: unknown }} raw - raw data
- * @return {boolean}
- */
-function handleInitialState(app, side, raw) {
+function handleInitialState(
+    app: App,
+    side: Side,
+    raw: { phase?: unknown; bidHistory?: unknown; deal?: unknown; vuln?: unknown },
+): boolean {
     if (!(raw.bidHistory instanceof Array) || raw.bidHistory.length != 2) {
         printErrorMessage(`init state: bad bid history: ${JSON.stringify(raw.bidHistory)}`);
         return false;
@@ -766,22 +607,14 @@ function handleInitialState(app, side, raw) {
     return true;
 }
 
-/**
- * @return {WebSocket}
- */
-function connectToGameServer() {
+function connectToGameServer(): WebSocket {
     const path = location.pathname;
     const basePath = path.split("/static/")[0];
     const wsUrl = `wss://${location.host}${basePath}/game`;
     return new WebSocket(wsUrl);
 }
 
-/**
- * @param {number} level - contract level
- * @param {string} denom - contract denomination (suit or NT)
- * @return {string} - JSON representation of the message
- */
-function createContractBidMessage(level, denom) {
+function createContractBidMessage(level: number, denom: string): string {
     return JSON.stringify({
         kind: "engine",
         data: {
@@ -791,10 +624,7 @@ function createContractBidMessage(level, denom) {
     });
 }
 
-/**
- * @return {string} - JSON representation of the message
- */
-function createPassMessage() {
+function createPassMessage(): string {
     return JSON.stringify({
         kind: "engine",
         data: {
@@ -804,10 +634,7 @@ function createPassMessage() {
     });
 }
 
-/**
- * @return {string} - JSON representation of the message
- */
-function createDoubleMessage() {
+function createDoubleMessage(): string {
     return JSON.stringify({
         kind: "engine",
         data: {
@@ -817,10 +644,7 @@ function createDoubleMessage() {
     });
 }
 
-/**
- * @return {string} - JSON representation of the message
- */
-function createRedoubleMessage() {
+function createRedoubleMessage(): string {
     return JSON.stringify({
         kind: "engine",
         data: {
@@ -830,12 +654,7 @@ function createRedoubleMessage() {
     });
 }
 
-/**
- * @param {Suit} suit - card's suit
- * @param {Rank} rank - card's rank
- * @return {string} - JSON representation of the message
- */
-function createCardPlayMessage(suit, rank) {
+function createCardPlayMessage(suit: Suit, rank: Rank): string {
     return JSON.stringify({
         kind: "engine",
         data: {
@@ -845,11 +664,7 @@ function createCardPlayMessage(suit, rank) {
     });
 }
 
-/**
- * @param {App} app - application data
- * @return {string} - JSON representation of the message
- */
-function createInitMessage(app) {
+function createInitMessage(app: App): string {
     return JSON.stringify({
         kind: "engine",
         data: {
@@ -859,23 +674,14 @@ function createInitMessage(app) {
     });
 }
 
-/**
- * Create text message for the chat.
- * @param {string} text - text message
- * @return {string} - JSON representation of the message
- */
-function createTextMessage(text) {
+function createTextMessage(text: string): string {
     return JSON.stringify({
         kind: "chat",
         data: text,
     });
 }
 
-/**
- * @param {Element} elem - Bid Element
- * @param {App} app - application data
- */
-function handleBidClick(elem, app) {
+function handleBidClick(elem: Element, app: App) {
     const items = elem.id.replace("bid-", "").split("-");
     const level = Number(items[0]);
     if (level) {
@@ -902,12 +708,7 @@ function handleBidClick(elem, app) {
     }
 }
 
-/**
- * @param {string} message - message to print
- * @param {string} styleName - additional style name for the message
- * @return {void}
- */
-function printMessage(message, styleName) {
+function printMessage(message: string, styleName: string): void {
     const messages = assertGetElementById("messages");
     const time = new Date().toLocaleTimeString();
     const line = document.createElement("div");
@@ -919,35 +720,19 @@ function printMessage(message, styleName) {
     messages.scrollTop = line.offsetTop;
 }
 
-/**
- * @param {string} message - error message to print
- * @return {void}
- */
-function printErrorMessage(message) {
+function printErrorMessage(message: string): void {
     printMessage(message, "error");
 }
 
-/**
- * @param {string} message - error message to print
- * @return {void}
- */
-function printNotificationMessage(message) {
+function printNotificationMessage(message: string): void {
     printMessage(message, "notification");
 }
 
-/**
- * @param {string} message - error message to print
- * @return {void}
- */
-function printChatMessage(message) {
+function printChatMessage(message: string): void {
     printMessage(message, "chat");
 }
 
-/**
- * @param {string} id
- * @return {Contract}
- */
-function assertElem2Contract(id) {
+function assertElem2Contract(id: string): Contract {
     const [_, rawLevel, rawDenom] = id.split("-");
     const level = parseLevel(Number(rawLevel));
     const denom = parseDenomination(rawDenom == "n" ? "NT" : rawDenom.toUpperCase());
@@ -957,10 +742,7 @@ function assertElem2Contract(id) {
     return { level, denom };
 }
 
-/**
- * @param {Bid} bid - the latest bid
- */
-function disableInactiveBids(bid) {
+function disableInactiveBids(bid: Bid) {
     if (typeof bid == "string") {
         // non-contract bids
         return;
@@ -977,13 +759,7 @@ function disableInactiveBids(bid) {
     });
 }
 
-/**
- * @param {Side} mySide
- * @param {Side} dealer
- * @param {Vulnerability} vuln
- * @return {void}
- */
-function labelPlayerSides(mySide, dealer, vuln) {
+function labelPlayerSides(mySide: Side, dealer: Side, vuln: Vulnerability): void {
     let side = mySide;
     for (const pos of ALL_POSITIONS) {
         const elem = assertGetElementById(`${pos}-side`);
@@ -1018,12 +794,10 @@ function playPopSound() {
     new Audio("mixkit-long-pop-2358.wav").play();
 }
 
-/**
- * @param {App} app - application data
- * @param {{ side?: unknown; state?: unknown; gen?: unknown }} data - current engine state
- * @return {void}
- */
-function processInitMessage(app, data) {
+function processInitMessage(
+    app: App,
+    data: { side?: unknown; state?: unknown; gen?: unknown },
+): void {
     const side = parseSide(data.side);
     if (!side) {
         printErrorMessage(`bad initialization state: bad side ${side}`);
@@ -1054,14 +828,7 @@ function processInitMessage(app, data) {
     playNotificationSound();
 }
 
-/**
- * @param {App} app - application data
- * @param {Side} side - bid from this side
- * @param {Bid} bid - input bid
- * @param {number} gen - the message generation
- * @return {void}
- */
-function processBidMessage(app, side, bid, gen) {
+function processBidMessage(app: App, side: Side, bid: Bid, gen: number): void {
     if (app.gen == undefined) {
         // didn't receive the initial message, delay handling
         app.pending.push([side, bid, gen]);
@@ -1080,13 +847,7 @@ function processBidMessage(app, side, bid, gen) {
     setMovePosition(getRelativePositionForSide(nextSide(side), app.mySide));
 }
 
-/**
- * @param {App} app - application data
- * @param {Side} dealer - original dealer
- * @param {Deal} deal - the original deal
- * @param {[Side, Card] | undefined} lead - the opening lead
- */
-function revealFullDeal(app, dealer, deal, lead) {
+function revealFullDeal(app: App, dealer: Side, deal: Deal, lead: [Side, Card] | undefined) {
     let side = app.mySide;
     if (!side) {
         throw new Error("unreachable");
@@ -1110,34 +871,26 @@ function revealFullDeal(app, dealer, deal, lead) {
     setMovePosition(getRelativePositionForSide(dealer, app.mySide));
 }
 
-/**
- * @param {string} contract - contract text representation
- */
-function displayContract(contract) {
+function displayContract(contract: string) {
     assertGetElementById("auction-result").innerText = contract;
     assertGetElementById("scores").style.visibility = "visible";
 }
 
-/**
- * @param {App} app - application data
- * @param {{
-       bid?: unknown;
-       card?: unknown;
-       contract?: unknown;
-       dealer?: unknown;
-       dummy?: unknown;
-       gen?: unknown;
-       kind?: unknown;
-       leader?: unknown;
-       lead?: unknown;
-       reveal?: unknown;
-       side?: unknown;
-       table?: unknown;
-       winner?: unknown;
-   }} data - engine message
- * @return {void}
- */
-function processEngineMessage(app, data) {
+function processEngineMessage(app: App, data: {
+    bid?: unknown;
+    card?: unknown;
+    contract?: unknown;
+    dealer?: unknown;
+    dummy?: unknown;
+    gen?: unknown;
+    kind?: unknown;
+    leader?: unknown;
+    lead?: unknown;
+    reveal?: unknown;
+    side?: unknown;
+    table?: unknown;
+    winner?: unknown;
+}): void {
     switch (data.kind) {
         case "bid": {
             const bid = parseBid(data.bid);
@@ -1251,12 +1004,7 @@ function processEngineMessage(app, data) {
     }
 }
 
-/**
- * @param {App} app - application data
- * @param {{ kind?: string; data?: unknown }} message - application data
- * @return {void}
- */
-function processMessage(app, message) {
+function processMessage(app: App, message: { kind?: string; data?: unknown }): void {
     switch (message.kind) {
         case "chat":
             if (typeof message.data != "string") {
@@ -1303,11 +1051,7 @@ function processMessage(app, message) {
     }
 }
 
-/**
- * @param {App} app - application data
- * @return {void}
- */
-function handleSubmit(app) {
+function handleSubmit(app: App): void {
     const input = assertGetElementById("chat-input");
     if (!(input instanceof HTMLInputElement)) {
         printErrorMessage("AssertionError: bad input element type");
@@ -1324,21 +1068,14 @@ function handleSubmit(app) {
     app.sock.send(createTextMessage(text));
 }
 
-/**
- * @param {App} app - application data
- * @param {MessageEvent} event - application data
- * @return {void}
- */
-function handleServerMessage(app, event) {
-    /** @type {unknown} */
-    const data = event.data;
+function handleServerMessage(app: App, event: MessageEvent): void {
+    const data: unknown = event.data;
     if (typeof data != "string") {
         printErrorMessage(`got non-string data from server: ${data}`);
         return;
     }
 
-    /** @type {unknown} */
-    let rawMessage = null;
+    let rawMessage: unknown = null;
     try {
         rawMessage = JSON.parse(data);
     } catch (e) {
@@ -1359,23 +1096,14 @@ function handleServerMessage(app, event) {
     processMessage(app, rawMessage);
 }
 
-/**
- * @param {App} app - application data
- * @return {void}
- */
-function handleSocketConnect(app) {
+function handleSocketConnect(app: App): void {
     // schedule initialization event immediately after handling open
     setTimeout(() => {
         app.sock.send(createInitMessage(app));
     });
 }
 
-/**
- * @param {App} app - application data
- * @param {HTMLButtonElement} button - "next" button
- * @return {void}
- */
-function handleNextClick(app, button) {
+function handleNextClick(app: App, button: HTMLButtonElement): void {
     resetUI();
     app.sock.send(createInitMessage(app));
     button.disabled = true;
@@ -1389,11 +1117,7 @@ function enableNextButton() {
     button.disabled = false;
 }
 
-/**
- * @param { (arg0: HTMLElement) => void } f - function to apply
- * @return {void}
- */
-function mapBidElems(f) {
+function mapBidElems(f: (arg0: HTMLElement) => void): void {
     const bidElems = assertGetElementsByClassName("bid");
     for (let i = 0; i < bidElems.length; ++i) {
         const elem = bidElems[i];
@@ -1405,11 +1129,7 @@ function mapBidElems(f) {
     }
 }
 
-/**
- * @param {App} app - application data
- * @return {void}
- */
-function registerEvents(app) {
+function registerEvents(app: App): void {
     // register UI clicks
     mapBidElems((elem) => {
         elem.addEventListener("click", () => {

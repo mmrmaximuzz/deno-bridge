@@ -1,2 +1,6 @@
+# generated X.509 keys for local testing
 server.crt
 server.key
+
+# javascript files in static are transpiled now
+static/*.js

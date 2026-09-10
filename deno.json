@@ -3,7 +3,8 @@
         "test:unit": "deno test",
         "test:e2e": "deno test --allow-net='localhost:9000' backend/tests/websocket_e2e.ts",
         "harness": "deno check && deno task 'test:*' && deno lint && deno fmt",
-        "run-debug": "sh scripts/gencert.sh && deno run --allow-read=server.key,server.crt,static --allow-net=127.0.0.1:60000 backend/main.ts debug"
+        "build": "deno bundle --platform browser --output static/main.js frontend/main.ts",
+        "run-debug": "deno task build && sh scripts/gencert.sh && deno run --allow-read=server.key,server.crt,static --allow-net=127.0.0.1:60000 backend/main.ts debug"
     },
     "imports": {
         "@std/assert": "jsr:@std/assert@^1.0.19",
