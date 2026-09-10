@@ -1,4 +1,4 @@
-import { Card, Deal, Side } from "./types.ts";
+import { Card, Deal, Side } from "../../shared/types.ts";
 
 export function hcp(card: Card): number {
     const [_, rank] = card;

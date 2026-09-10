@@ -1,5 +1,6 @@
+import { Card, Deal, Rank, Suit } from "../../shared/types.ts";
+
 import { createEngine, EngineInput, GameEvent } from "./engine.ts";
-import { Card, Deal, Rank, Suit } from "./types.ts";
 import { AssertionError } from "@std/assert/assertion-error";
 import { assertEquals } from "@std/assert/equals";
 

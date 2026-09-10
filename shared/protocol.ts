@@ -1,4 +1,4 @@
-import { Bid, Card, Deal, Side } from "./game/types.ts";
+import { Bid, Card, Deal, Side } from "./types.ts";
 import { parseBid, parseCard } from "./parsing.ts";
 
 export type ClientEngineMessage =

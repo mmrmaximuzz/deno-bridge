@@ -1,6 +1,7 @@
-import { Side } from "./game/types.ts";
-import { ConnectionManager, createConnectionManager } from "./connection.ts";
 import { assertObjectMatch } from "@std/assert/object-match";
+
+import { Side } from "../../shared/types.ts";
+import { ConnectionManager, createConnectionManager } from "../connection.ts";
 
 class WebSocketConnectionHarness {
     private server: Deno.HttpServer | null = null;

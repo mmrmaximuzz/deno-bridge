@@ -1,4 +1,5 @@
 import { assert, assertEquals, assertFalse, assertThrows } from "@std/assert";
+
 import {
     allDifferent,
     compare2Tuples,

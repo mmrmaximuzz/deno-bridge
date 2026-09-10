@@ -1,11 +1,12 @@
 import { serveDir } from "@std/http/file-server";
 
-import { Side } from "./game/types.ts";
+import { Side } from "../shared/types.ts";
+
 import { getAllSides } from "./game/utils.ts";
 import { ConnectionManager, createConnectionManager, Tweaks } from "./connection.ts";
-
-import settings from "./settings.json" with { type: "json" };
 import { noFilter, simpleFilterNSHcp, simpleFilterNSLongsuit } from "./game/deal_filters.ts";
+
+import settings from "../settings.json" with { type: "json" };
 
 type Tokens = Record<Side, string | null>;
 type Table = {

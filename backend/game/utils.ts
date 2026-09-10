@@ -1,4 +1,4 @@
-import { Pair, Side } from "./types.ts";
+import { Pair, Side } from "../../shared/types.ts";
 
 export function getAllSides(): Side[] {
     return ["W", "N", "E", "S"];

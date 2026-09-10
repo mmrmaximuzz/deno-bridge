@@ -1,10 +1,11 @@
 import { assertEquals } from "@std/assert/equals";
 import { assertThrows } from "@std/assert/throws";
+import { assertObjectMatch } from "@std/assert/object-match";
+
+import { Card, Denomination, Side } from "../../shared/types.ts";
 
 import { __test__, processTrick } from "./cards.ts";
 import { getAllSides } from "./utils.ts";
-import { Card, Denomination, Side } from "./types.ts";
-import { assertObjectMatch } from "@std/assert/object-match";
 
 Deno.test("notrump tricks (all in suit)", () => {
     assertEquals(

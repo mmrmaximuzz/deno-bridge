@@ -1,6 +1,8 @@
 import { assertEquals } from "@std/assert/equals";
+
+import { ContractStatus, Denomination, Level, Vulnerability } from "../../shared/types.ts";
+
 import { scoreContract } from "./scoring.ts";
-import { ContractStatus, Denomination, Level, Vulnerability } from "./types.ts";
 import { FinalContract } from "./bidding.ts";
 
 const ALL_VULNS: Vulnerability[] = ["NONE", "NS", "WE", "BOTH"];

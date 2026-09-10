@@ -1,4 +1,5 @@
-import { Card, Deal, Denomination, Rank, Side, Suit } from "./types.ts";
+import { Card, Deal, Denomination, Rank, Side, Suit } from "../../shared/types.ts";
+
 import { allDifferent, compare2Tuples, getAllSides, getPartner, nextSide } from "./utils.ts";
 
 export type Trick = Record<Side, Card>;

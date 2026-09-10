@@ -1,5 +1,6 @@
+import { Deal, Side, Suit } from "../../shared/types.ts";
+
 import { evalHandsHcp } from "./hcp.ts";
-import { Deal, Side, Suit } from "./types.ts";
 
 export type DealFilter = {
     /** Logical predicate to filter deals */

@@ -1,11 +1,12 @@
+import { ClientEngineMessage, parseClientData } from "../shared/protocol.ts";
+import { Bid, Card, Deal, Side, Vulnerability } from "../shared/types.ts";
+
 import { createEngine, Engine, GameEvent } from "./game/engine.ts";
-import { Bid, Card, Deal, Side, Vulnerability } from "./game/types.ts";
 import { getPair, nextSide } from "./game/utils.ts";
 import { FinalContract } from "./game/bidding.ts";
 import { DealFilter, noFilter } from "./game/deal_filters.ts";
 import { generateHandWithFilter, getRandomSide, getRandomVulnerability } from "./game/random.ts";
 import { Clients, createPublisher, Nickname, Publisher } from "./publisher.ts";
-import { ClientEngineMessage, parseClientData } from "./protocol.ts";
 
 export interface ConnectionManager {
     register(side: Side, sock: WebSocket): void;

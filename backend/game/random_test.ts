@@ -1,7 +1,9 @@
 import { assert } from "@std/assert/assert";
+
+import { Card, Deal, Rank, Suit } from "../../shared/types.ts";
+
 import { evalCardsHcp } from "./hcp.ts";
 import { generateHandWithFilter, getRandomDeal } from "./random.ts";
-import { Card, Deal, Rank, Suit } from "./types.ts";
 import { assertThrows } from "@std/assert/throws";
 import { assertEquals } from "@std/assert/equals";
 

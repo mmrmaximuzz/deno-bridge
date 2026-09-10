@@ -1,5 +1,6 @@
+import { Card, Deal, Rank, Side, Suit, Vulnerability } from "../../shared/types.ts";
+
 import { DealFilter } from "./deal_filters.ts";
-import { Card, Deal, Rank, Side, Suit, Vulnerability } from "./types.ts";
 import { getAllSides } from "./utils.ts";
 
 export function unbiasedRandRange(limit: number): number {
