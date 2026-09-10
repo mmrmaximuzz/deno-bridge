@@ -1,6 +1,8 @@
 {
     "tasks": {
-        "harness": "deno check && deno test && deno test --allow-net='localhost:9000' websocket_e2e.ts && deno lint && deno fmt",
+        "test:unit": "deno test",
+        "test:e2e": "deno test --allow-net='localhost:9000' websocket_e2e.ts",
+        "harness": "deno check && deno task 'test:*' && deno lint && deno fmt",
         "run-debug": "sh gencert.sh && deno run --allow-read=server.key,server.crt,static --allow-net=127.0.0.1:60000 main.ts debug"
     },
     "imports": {
