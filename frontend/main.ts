@@ -11,19 +11,13 @@ import {
 } from "../shared/types.ts";
 
 import {
-    parseBid,
-    parseBids,
-    parseCard,
     parseDenomination,
-    parseFullDeal,
-    parseHand,
-    parseLead,
     parseLevel,
     parseRank,
-    parseSide,
+    parseServerMessage,
     parseSuit,
-    parseVulnerability,
 } from "../shared/parsing.ts";
+import { ServerEngineMessage, ServerMessage } from "../shared/protocol.ts";
 
 type Position = "bottom" | "left" | "top" | "right";
 
@@ -388,25 +382,13 @@ function displayPlayerHand(
 function handleInitialState(
     app: App,
     side: Side,
-    raw: { phase?: unknown; bidHistory?: unknown; deal?: unknown; vuln?: unknown },
-): boolean {
-    if (!(raw.bidHistory instanceof Array) || raw.bidHistory.length != 2) {
-        printErrorMessage(`init state: bad bid history: ${JSON.stringify(raw.bidHistory)}`);
-        return false;
-    }
-
-    const [rawDealer, rawHistory] = raw.bidHistory;
-    const dealer = parseSide(rawDealer);
-    const history = parseBids(rawHistory);
-    const cards = parseHand(raw.deal);
-    const vuln = parseVulnerability(raw.vuln);
-    if (!dealer || !history || !cards || !vuln) {
-        printErrorMessage(`init state: bad init object: ${JSON.stringify(raw)}`);
-        return false;
-    }
-
+    bidHistory: [Side, Bid[]],
+    hand: Card[],
+    vuln: Vulnerability,
+): void {
+    const [dealer, history] = bidHistory;
     labelPlayerSides(side, dealer, vuln);
-    displayPlayerHand(app, cards, "bottom", true);
+    displayPlayerHand(app, hand, "bottom", true);
     auctionHistorySetDealer(dealer);
 
     let lastContract = null;
@@ -422,7 +404,6 @@ function handleInitialState(
     if (lastContract) {
         disableInactiveBids(lastContract);
     }
-    return true;
 }
 
 function connectToGameServer(): WebSocket {
@@ -620,30 +601,16 @@ function playPopSound(): void {
 
 function processInitMessage(
     app: App,
-    data: { side?: unknown; state?: unknown; gen?: unknown },
+    side: Side,
+    bidHistory: [Side, Bid[]],
+    hand: Card[],
+    vuln: Vulnerability,
+    gen: number,
 ): void {
-    const side = parseSide(data.side);
-    if (!side) {
-        printErrorMessage(`bad initialization state: bad side ${side}`);
-        return;
-    }
-
-    if (typeof data.gen != "number") {
-        printErrorMessage(`bad init state: gen number is ${data.gen}`);
-        return;
-    }
-    if (!data.state || typeof data.state != "object") {
-        printErrorMessage(`bad initialization state: ${JSON.stringify(data.state)}`);
-        return;
-    }
-    const done = handleInitialState(app, side, data.state);
-    if (!done) {
-        printErrorMessage(`failed to handle init state: ${JSON.stringify(data.state)}`);
-        return;
-    }
+    handleInitialState(app, side, bidHistory, hand, vuln);
 
     app.mySide = side;
-    app.gen = data.gen;
+    app.gen = gen;
     // apply pending updates if any
     for (const [side, pending, gen] of app.pending) {
         processBidMessage(app, side, pending, gen);
@@ -671,7 +638,7 @@ function processBidMessage(app: App, side: Side, bid: Bid, gen: number): void {
     setMovePosition(getRelativePositionForSide(nextSide(side), app.mySide));
 }
 
-function revealFullDeal(app: App, dealer: Side, deal: Deal, lead: [Side, Card] | undefined) {
+function revealFullDeal(app: App, dealer: Side, deal: Deal, lead: [Side, Card] | null) {
     let side = app.mySide;
     if (!side) {
         throw new Error("unreachable");
@@ -700,67 +667,32 @@ function displayContract(contract: string) {
     assertGetElementById("scores").style.visibility = "visible";
 }
 
-function processEngineMessage(app: App, data: {
-    bid?: unknown;
-    card?: unknown;
-    contract?: unknown;
-    dealer?: unknown;
-    dummy?: unknown;
-    gen?: unknown;
-    kind?: unknown;
-    leader?: unknown;
-    lead?: unknown;
-    reveal?: unknown;
-    side?: unknown;
-    table?: unknown;
-    winner?: unknown;
-}): void {
+function processEngineMessage(app: App, data: ServerEngineMessage): void {
     switch (data.kind) {
         case "bid": {
-            const bid = parseBid(data.bid);
-            const side = parseSide(data.side);
-            if (!bid || !side) {
-                printErrorMessage(
-                    `failed to parse data in 'engine' message: ${JSON.stringify(data.bid)}`,
-                );
-                return;
-            }
-            if (typeof data.gen != "number") {
-                printErrorMessage(`bad generation number in engine message: ${data.gen}`);
-                return;
-            }
-            processBidMessage(app, side, bid, data.gen);
+            processBidMessage(app, data.side, data.bid, data.gen);
             playNotificationSound();
             break;
         }
         case "contract": {
-            const leader = parseSide(data.leader);
-            if (!leader || typeof data.contract != "string" || !app.mySide) {
-                printErrorMessage(`bad 'contract' message: ${JSON.stringify(data)}`);
+            if (!app.mySide) {
+                printErrorMessage("AssertionError: app not initialized");
                 return;
             }
             displayContract(data.contract);
-            setMovePosition(getRelativePositionForSide(leader, app.mySide));
+            setMovePosition(getRelativePositionForSide(data.leader, app.mySide));
             playPopSound();
             break;
         }
         case "startplay": {
-            const dummy = parseSide(data.dummy);
-            const table = parseHand(data.table);
-            if (!dummy || !table) {
-                printErrorMessage(`bad 'startplay' message: ${JSON.stringify(data)}`);
-                return;
-            }
-            const declarer = nextSide(nextSide(dummy));
-
             if (!app.mySide) {
                 printErrorMessage("AssertionError: app not initialized");
                 return;
             }
 
-            setMovePosition(getRelativePositionForSide(dummy, app.mySide));
-
-            if (app.mySide == dummy) {
+            const declarer = nextSide(nextSide(data.dummy));
+            setMovePosition(getRelativePositionForSide(data.dummy, app.mySide));
+            if (app.mySide == data.dummy) {
                 // we are already dummy, nothing new to draw
                 return;
             }
@@ -768,110 +700,62 @@ function processEngineMessage(app: App, data: {
             // find who is dummy and draw its hand
             displayPlayerHand(
                 app,
-                table,
-                getRelativePositionForSide(dummy, app.mySide),
+                data.table,
+                getRelativePositionForSide(data.dummy, app.mySide),
                 app.mySide == declarer,
             );
             playPopSound();
             break;
         }
         case "playcard": {
-            const side = parseSide(data.side);
-            const card = parseCard(data.card);
-            if (!side || !card) {
-                printErrorMessage(`bad playcard message: ${JSON.stringify(data)}`);
-                return;
-            }
             if (!app.mySide) {
                 printErrorMessage("AssertionError: no self side on 'playcard'");
                 return;
             }
-            moveCardFromHandToTable(app, side, card);
-            setMovePosition(getRelativePositionForSide(nextSide(side), app.mySide));
+            moveCardFromHandToTable(app, data.side, data.card);
+            setMovePosition(getRelativePositionForSide(nextSide(data.side), app.mySide));
             playNotificationSound();
             break;
         }
         case "trick": {
-            const winner = parseSide(data.winner);
-            if (!winner) {
-                printErrorMessage(`bad 'trick' message: ${JSON.stringify(data)}`);
-                return;
-            }
             if (!app.mySide) {
                 printErrorMessage("AssertionError: no self side on 'trick'");
                 return;
             }
             app.needFlushTable = true; // need to flush after the last trick
-            setMovePosition(getRelativePositionForSide(winner, app.mySide));
-            increaseTrickCount(winner);
+            setMovePosition(getRelativePositionForSide(data.winner, app.mySide));
+            increaseTrickCount(data.winner);
             break;
         }
         case "nextdeal": {
-            const dealer = parseSide(data.dealer);
-            const deal = parseFullDeal(data.reveal);
-            const lead = data.lead != null ? parseLead(data.lead) : undefined;
-            if (!deal || !dealer || lead === null) {
-                printErrorMessage(`failed to parse 'nextdeal': ${JSON.stringify(data)}`);
-                return;
-            }
             setTimeout(() => {
                 // give some time enough to view the last trick
-                revealFullDeal(app, dealer, deal, lead);
+                revealFullDeal(app, data.dealer, data.reveal, data.lead);
                 enableNextButton();
                 playPopSound();
             }, 3000);
-            return;
+            break;
         }
-        default:
-            printErrorMessage(`bad engine message kind: ${data.kind}`);
-            return;
+        case "init":
+            processInitMessage(app, data.side, data.bidHistory, data.hand, data.vuln, data.gen);
+            break;
     }
 }
 
-function processMessage(app: App, message: { kind?: string; data?: unknown }): void {
+function processMessage(app: App, message: ServerMessage): void {
     switch (message.kind) {
         case "chat":
-            if (typeof message.data != "string") {
-                printErrorMessage(`invalid chat data from server: ${message.data}`);
-                return;
-            }
             printChatMessage(message.data);
-            return;
+            break;
         case "error":
-            if (typeof message.data != "string") {
-                printErrorMessage(`invalid error message from server: ${message.data}`);
-                return;
-            }
             printErrorMessage(message.data);
-            return;
+            break;
         case "notify":
-            if (typeof message.data != "string") {
-                printErrorMessage(`invalid notification message from server: ${message.data}`);
-                return;
-            }
             printNotificationMessage(message.data);
-            return;
-        case "init":
-            if (typeof message.data != "object" || message.data == null) {
-                printErrorMessage(
-                    `invalid initialization state from server: ${JSON.stringify(message.data)}`,
-                );
-                return;
-            }
-            processInitMessage(app, message.data);
-            return;
+            break;
         case "engine":
-            if (typeof message.data != "object" || message.data == null) {
-                printErrorMessage(
-                    `invalid engine data from server: ${JSON.stringify(message.data)}`,
-                );
-                return;
-            }
             processEngineMessage(app, message.data);
-            return;
-        default:
-            printErrorMessage(`invalid message kind from server: ${message.kind}`);
-            return;
+            break;
     }
 }
 
@@ -893,31 +777,12 @@ function handleSubmit(app: App): void {
 }
 
 function handleServerMessage(app: App, event: MessageEvent): void {
-    const data: unknown = event.data;
-    if (typeof data != "string") {
-        printErrorMessage(`got non-string data from server: ${data}`);
+    const res = parseServerMessage(event.data);
+    if (typeof res == "string") {
+        printErrorMessage(`failed to parse server message: ${res}`);
         return;
     }
-
-    let rawMessage: unknown = null;
-    try {
-        rawMessage = JSON.parse(data);
-    } catch (e) {
-        if (e instanceof SyntaxError) {
-            printErrorMessage(`failed to parse JSON string from server: ${data}`);
-        } else {
-            printErrorMessage(`unknown exception on ${data}: ${e}`);
-            throw e;
-        }
-        return;
-    }
-
-    if (typeof rawMessage != "object" || rawMessage == null) {
-        printErrorMessage(`got bad message type from server: ${typeof rawMessage} (${data})`);
-        return;
-    }
-
-    processMessage(app, rawMessage);
+    processMessage(app, res);
 }
 
 function handleSocketConnect(app: App): void {

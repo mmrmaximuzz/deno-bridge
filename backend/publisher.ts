@@ -1,5 +1,5 @@
 import { ServerMessage } from "../shared/protocol.ts";
-import { Bid, Card, Deal, getAllSides, nextSide, Side } from "../shared/types.ts";
+import { Bid, Card, Deal, getAllSides, nextSide, Side, Vulnerability } from "../shared/types.ts";
 
 import { FinalContract } from "./game/bidding.ts";
 
@@ -42,6 +42,13 @@ export interface Publisher {
     chat(side: Side, msg: string): void;
 
     // game
+    init(
+        side: Side,
+        bidHistory: [Side, Bid[]],
+        hand: Card[],
+        vuln: Vulnerability,
+        gen: number,
+    ): void;
     bid(side: Side, bid: Bid, gen: number): void;
     contract(contract: FinalContract): void;
     finish(deal: Deal, dealer: Side, lead: [Side, Card] | null): void;
@@ -121,8 +128,19 @@ class PublisherImpl implements Publisher {
         this.broadcast(msg);
     }
 
-    chatmsg(msg: string): string {
-        return JSON.stringify({ kind: "chat", data: msg });
+    init(side: Side, bidHistory: [Side, Bid[]], hand: Card[], vuln: Vulnerability, gen: number) {
+        const msg: ServerMessage = {
+            kind: "engine",
+            data: {
+                kind: "init",
+                side,
+                bidHistory,
+                hand,
+                vuln,
+                gen,
+            },
+        };
+        this.unicast(side, msg);
     }
 
     bid(side: Side, bid: Bid, gen: number): void {

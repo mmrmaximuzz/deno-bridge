@@ -152,14 +152,12 @@ Deno.test("init connection", async () => {
     harness.sendMessage(sClient, { kind: "engine", data: { kind: "init" } });
     const sInitResponse = await harness.waitForMessage(sClient);
     assertObjectMatch(sInitResponse, {
-        kind: "init",
+        kind: "engine",
         data: {
+            kind: "init",
             side: "S",
-            state: {
-                phase: "auction",
-                bidHistory: [],
-                deal: [],
-            },
+            bidHistory: [],
+            hand: [],
             gen: 0,
         },
     });

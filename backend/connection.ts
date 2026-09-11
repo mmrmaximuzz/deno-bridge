@@ -81,38 +81,18 @@ class ConnectionManagerImpl implements ConnectionManager {
         throw new Error(`server fatal error: ${msg}`);
     }
 
-    createInit(side: Side, gen: number): string {
-        const game = this.game;
-
-        if (auctionFinished(game)) {
-            this.die("not implemented");
-        }
-
-        return JSON.stringify({
-            kind: "init",
-            data: {
-                side,
-                state: {
-                    phase: "auction",
-                    bidHistory: extractBidHistory(game),
-                    deal: game.deal[side],
-                    vuln: game.vuln,
-                },
-                gen,
-            },
-        });
-    }
-
     handleOpen(conn: WebSocket, side: Side): void {
         this.clients[side] = { conn, nick: null };
     }
 
-    handleInitMessage(conn: WebSocket, side: Side, nick: Nickname): void {
+    handleInitMessage(side: Side, nick: Nickname): void {
         if (!this.clients[side]) {
             this.die(`AssertionError: got init message from non-connected client: ${side}:${nick}`);
         }
         this.clients[side].nick = nick;
-        conn.send(this.createInit(side, this.gen));
+
+        const game = this.game;
+        this.publisher.init(side, extractBidHistory(game), game.deal[side], game.vuln, this.gen);
     }
 
     handleEngineBidMessage(side: Side, bid: Bid): void {
@@ -219,7 +199,6 @@ class ConnectionManagerImpl implements ConnectionManager {
     }
 
     handleEngineMessage(
-        conn: WebSocket,
         side: Side,
         data: ClientEngineMessage,
     ): void {
@@ -234,7 +213,7 @@ class ConnectionManagerImpl implements ConnectionManager {
                 const nick = (typeof data.nickname == "string" && data.nickname)
                     ? data.nickname
                     : null;
-                this.handleInitMessage(conn, side, nick);
+                this.handleInitMessage(side, nick);
                 break;
             }
         }
@@ -244,7 +223,7 @@ class ConnectionManagerImpl implements ConnectionManager {
         this.publisher.chat(side, message);
     }
 
-    handleMessage(conn: WebSocket, side: Side, data: unknown): void {
+    handleMessage(side: Side, data: unknown): void {
         const input = parseClientMessage(data);
         if (typeof input == "string") {
             this.publisher.error(input, side);
@@ -256,7 +235,7 @@ class ConnectionManagerImpl implements ConnectionManager {
                 this.handleChatMessage(side, input.data);
                 return;
             case "engine":
-                this.handleEngineMessage(conn, side, input.data);
+                this.handleEngineMessage(side, input.data);
                 return;
         }
     }
@@ -281,7 +260,7 @@ class ConnectionManagerImpl implements ConnectionManager {
             this.handleOpen(sock, side);
         });
         sock.addEventListener("message", (event) => {
-            this.handleMessage(sock, side, event.data);
+            this.handleMessage(side, event.data);
         });
         sock.addEventListener("close", () => {
             this.handleClose(side);
@@ -294,15 +273,6 @@ export function createConnectionManager(tweaks?: Tweaks): ConnectionManager {
 }
 
 // FIXME: compatibility with old connection code
-function auctionFinished(game: Game): boolean {
-    for (const event of game.events) {
-        if (event.kind == "CardPlayed" || event.kind == "PassOut") {
-            return true;
-        }
-    }
-    return false;
-}
-
 function extractBidHistory(game: Game): [Side, Bid[]] {
     const bids: Bid[] = [];
     for (const event of game.events) {
