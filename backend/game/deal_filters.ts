@@ -1,6 +1,4 @@
-import { Deal, Side, Suit } from "../../shared/types.ts";
-
-import { evalHandsHcp } from "./hcp.ts";
+import { Deal } from "../../shared/types.ts";
 
 export type DealFilter = {
     /** Logical predicate to filter deals */
@@ -16,32 +14,5 @@ export type DealFilter = {
 export function noFilter(): DealFilter {
     return {
         pred: (_deal: Deal) => true,
-    };
-}
-
-export function simpleFilterNSHcp(minHcp: number): DealFilter {
-    return {
-        pred: (deal: Deal) => {
-            const hands = evalHandsHcp(deal);
-            return hands["N"] + hands["S"] >= minHcp;
-        },
-    };
-}
-
-export function simpleFilterNSLongsuit(minLength: number): DealFilter {
-    const NS_SIDES: Side[] = ["N", "S"];
-    return {
-        pred: (deal: Deal) => {
-            for (const side of NS_SIDES) {
-                const suits: Record<Suit, number> = { S: 0, C: 0, D: 0, H: 0 };
-                for (const [suit, _rank] of deal[side]) {
-                    ++suits[suit];
-                    if (suits[suit] >= minLength) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        },
     };
 }

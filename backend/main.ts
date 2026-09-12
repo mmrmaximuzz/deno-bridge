@@ -1,11 +1,12 @@
 import { serveDir } from "@std/http/file-server";
 
-import { getAllSides, Side } from "../shared/types.ts";
+import { Deal, getAllSides, Side, Suit } from "../shared/types.ts";
 
 import { ConnectionManager, createConnectionManager, Tweaks } from "./connection.ts";
-import { noFilter, simpleFilterNSHcp, simpleFilterNSLongsuit } from "./game/deal_filters.ts";
+import { DealFilter, noFilter } from "./game/deal_filters.ts";
 
 import settings from "../settings.json" with { type: "json" };
+import { evalHandsHcp } from "./game/hcp.ts";
 
 type Tokens = Record<Side, string | null>;
 type Table = {
@@ -141,6 +142,33 @@ function createTable(args: TableArgs): Table {
         accessToken,
         playerTokens,
         manager: createConnectionManager(tweaks),
+    };
+}
+
+function simpleFilterNSHcp(minHcp: number): DealFilter {
+    return {
+        pred: (deal: Deal) => {
+            const hands = evalHandsHcp(deal);
+            return hands["N"] + hands["S"] >= minHcp;
+        },
+    };
+}
+
+function simpleFilterNSLongsuit(minLength: number): DealFilter {
+    const NS_SIDES: Side[] = ["N", "S"];
+    return {
+        pred: (deal: Deal) => {
+            for (const side of NS_SIDES) {
+                const suits: Record<Suit, number> = { S: 0, C: 0, D: 0, H: 0 };
+                for (const [suit, _rank] of deal[side]) {
+                    ++suits[suit];
+                    if (suits[suit] >= minLength) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        },
     };
 }
 
