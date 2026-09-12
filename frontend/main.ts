@@ -3,6 +3,8 @@ import {
     Card,
     Contract,
     Deal,
+    Denomination,
+    Level,
     nextSide,
     Rank,
     Side,
@@ -17,7 +19,7 @@ import {
     parseServerMessage,
     parseSuit,
 } from "../shared/parsing.ts";
-import { ServerEngineMessage, ServerMessage } from "../shared/protocol.ts";
+import { ClientMessage, ServerEngineMessage, ServerMessage } from "../shared/protocol.ts";
 
 type Position = "bottom" | "left" | "top" | "right";
 
@@ -40,11 +42,11 @@ class App {
         this.debug = new URLSearchParams(location.search).has("debug");
     }
 
-    sendmsg(msg: string): void {
+    sendmsg(msg: ClientMessage): void {
         if (this.debug) {
-            console.log(msg);
+            console.log("send:", msg);
         }
-        this.sock.send(msg);
+        this.sock.send(JSON.stringify(msg));
     }
 }
 
@@ -431,80 +433,84 @@ function connectToGameServer(): WebSocket {
     return new WebSocket(wsUrl);
 }
 
-function createContractBidMessage(level: number, denom: string): string {
-    return JSON.stringify({
+function createContractBidMessage(level: Level, denom: Denomination): ClientMessage {
+    return {
         kind: "engine",
         data: {
             kind: "bid",
             bid: { level, denom },
         },
-    });
+    };
 }
 
-function createPassMessage(): string {
-    return JSON.stringify({
+function createPassMessage(): ClientMessage {
+    return {
         kind: "engine",
         data: {
             kind: "bid",
             bid: "PASS",
         },
-    });
+    };
 }
 
-function createDoubleMessage(): string {
-    return JSON.stringify({
+function createDoubleMessage(): ClientMessage {
+    return {
         kind: "engine",
         data: {
             kind: "bid",
             bid: "X",
         },
-    });
+    };
 }
 
-function createRedoubleMessage(): string {
-    return JSON.stringify({
+function createRedoubleMessage(): ClientMessage {
+    return {
         kind: "engine",
         data: {
             kind: "bid",
             bid: "XX",
         },
-    });
+    };
 }
 
-function createCardPlayMessage(suit: Suit, rank: Rank): string {
-    return JSON.stringify({
+function createCardPlayMessage(suit: Suit, rank: Rank): ClientMessage {
+    return {
         kind: "engine",
         data: {
             kind: "cardplay",
             card: [suit, rank],
         },
-    });
+    };
 }
 
-function createInitMessage(app: App): string {
-    return JSON.stringify({
+function createInitMessage(app: App): ClientMessage {
+    return {
         kind: "engine",
         data: {
             kind: "init",
             nickname: app.nickname,
         },
-    });
+    };
 }
 
-function createTextMessage(text: string): string {
-    return JSON.stringify({
+function createTextMessage(text: string): ClientMessage {
+    return {
         kind: "chat",
         data: text,
-    });
+    };
 }
 
 function handleBidClick(elem: Element, app: App) {
     const items = elem.id.replace("bid-", "").split("-");
-    const level = Number(items[0]);
-    if (level) {
+    const rawLevel = Number(items[0]);
+    if (rawLevel) {
         // normal contract bids
-        const rawDenom = items[1];
-        const denom = rawDenom == "n" ? "NT" : rawDenom.toUpperCase();
+        const rawDenom = items[1] == "n" ? "NT" : items[1].toUpperCase();
+        const level = parseLevel(rawLevel);
+        const denom = parseDenomination(rawDenom);
+        if (!level || !denom) {
+            throw new Error(`AssertionError: ${elem.id}:${rawLevel}:${rawDenom}`);
+        }
         app.sendmsg(createContractBidMessage(level, denom));
     } else {
         // special bids
@@ -795,22 +801,19 @@ function handleSubmit(app: App): void {
 }
 
 function handleServerMessage(app: App, event: MessageEvent): void {
-    if (app.debug) {
-        console.log(event.data);
-    }
     const res = parseServerMessage(event.data);
     if (typeof res == "string") {
         printErrorMessage(`failed to parse server message: ${res}`);
         return;
     }
+    if (app.debug) {
+        console.log("recv:", res);
+    }
     processMessage(app, res);
 }
 
 function handleSocketConnect(app: App): void {
-    // schedule initialization event immediately after handling open
-    setTimeout(() => {
-        app.sendmsg(createInitMessage(app));
-    });
+    app.sendmsg(createInitMessage(app));
 }
 
 function handleSocketError(event: Event): void {
