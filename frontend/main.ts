@@ -857,15 +857,20 @@ function registerEvents(app: App): void {
 }
 
 function getNickname(): string | null {
-    // get saved nick first
-    const nickname = localStorage.getItem("nick");
+    // get seat identifier
+    const seatId = location.pathname.split("/static/")[0];
+    const nickKey = `nick${seatId}`;
+
+    // get saved nick for this seat first
+    const nickname = localStorage.getItem(nickKey);
     if (nickname !== null) {
         return nickname;
     }
-    // ask user directly otherwise
+
+    // otherwise ask user directly
     const res = prompt("Your nickname (for chat only)");
     if (res !== null) {
-        localStorage.setItem("nick", res);
+        localStorage.setItem(nickKey, res);
     }
     return res;
 }
