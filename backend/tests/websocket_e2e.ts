@@ -1,6 +1,11 @@
+import { assert } from "@std/assert/assert";
+import { assertEquals } from "@std/assert/equals";
 import { assertObjectMatch } from "@std/assert/object-match";
 
 import { Side } from "../../shared/types.ts";
+import { ClientMessage, ServerMessage } from "../../shared/protocol.ts";
+import { parseServerMessage } from "../../shared/parsing.ts";
+
 import { ConnectionManager, createConnectionManager } from "../connection.ts";
 
 class WebSocketConnectionHarness {
@@ -71,19 +76,19 @@ class WebSocketConnectionHarness {
     }
 
     waitForMessage(sock: WebSocket, timeout = 5000) {
-        return new Promise<object>((resolve, reject) => {
+        return new Promise<ServerMessage>((resolve, reject) => {
             const timer = setTimeout(() => {
                 reject(new Error("message timeout"));
             }, timeout);
             sock.onmessage = (event) => {
                 clearTimeout(timer);
                 if (typeof event.data == "string") {
-                    const res = JSON.parse(event.data);
+                    const res = parseServerMessage(event.data);
                     if (typeof res == "object") {
                         sock.onmessage = null;
                         resolve(res);
                     } else {
-                        reject(new Error("bad response type"));
+                        reject(new Error(`failed to parse: ${res}`));
                     }
                 } else {
                     reject(new Error("bad websocket content"));
@@ -92,7 +97,7 @@ class WebSocketConnectionHarness {
         });
     }
 
-    sendMessage(sock: WebSocket, message: object) {
+    sendMessage(sock: WebSocket, message: ClientMessage) {
         sock.send(JSON.stringify(message));
     }
 }
@@ -149,16 +154,13 @@ Deno.test("anonymous chat", async () => {
 Deno.test("init connection", async () => {
     const sClient = await harness.connectToSide("S");
 
-    harness.sendMessage(sClient, { kind: "engine", data: { kind: "init" } });
+    harness.sendMessage(sClient, { kind: "engine", data: { kind: "init", nickname: null } });
     const sInitResponse = await harness.waitForMessage(sClient);
-    assertObjectMatch(sInitResponse, {
-        kind: "engine",
-        data: {
-            kind: "init",
-            side: "S",
-            bidHistory: [],
-            hand: [],
-            gen: 0,
-        },
-    });
+
+    assert(sInitResponse instanceof Object);
+    assert(sInitResponse.kind == "engine" && sInitResponse.data.kind == "init");
+    assertEquals(sInitResponse.data.side, "S", "side must match");
+    assertEquals(sInitResponse.data.hand.length, 13, "hand must be 13 cards");
+    assertEquals(sInitResponse.data.gen, 0, "empty gen must be 0");
+    assertEquals(sInitResponse.data.bidHistory[1], [], "no bidding history yet");
 });
