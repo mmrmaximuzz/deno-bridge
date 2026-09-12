@@ -856,8 +856,22 @@ function registerEvents(app: App): void {
     app.sock.onclose = () => handleSocketClose();
 }
 
+function getNickname(): string | null {
+    // get saved nick first
+    const nickname = localStorage.getItem("nick");
+    if (nickname !== null) {
+        return nickname;
+    }
+    // ask user directly otherwise
+    const res = prompt("Your nickname (for chat only)");
+    if (res !== null) {
+        localStorage.setItem("nick", res);
+    }
+    return res;
+}
+
 function main() {
-    const nickname = prompt("Your nickname (for chat only)");
+    const nickname = getNickname();
     const app = {
         sock: connectToGameServer(),
         pending: [],
