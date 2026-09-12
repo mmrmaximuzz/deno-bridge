@@ -164,3 +164,15 @@ Deno.test("init connection", async () => {
     assertEquals(sInitResponse.data.gen, 0, "empty gen must be 0");
     assertEquals(sInitResponse.data.bidHistory[1], [], "no bidding history yet");
 });
+
+Deno.test("chat with nick", async () => {
+    const [s, n] = await Promise.all([harness.connectToSide("S"), harness.connectToSide("N")]);
+    harness.sendMessage(s, { kind: "engine", data: { kind: "init", nickname: "deadbeef" } });
+    await harness.waitForMessage(s); // ignore response
+
+    harness.sendMessage(s, { kind: "chat", data: "coolmsg" });
+    const nMessage = await harness.waitForMessage(n);
+    assert(nMessage instanceof Object);
+    assert(nMessage.kind == "chat");
+    assertEquals(nMessage.data, "S(deadbeef): coolmsg");
+});
