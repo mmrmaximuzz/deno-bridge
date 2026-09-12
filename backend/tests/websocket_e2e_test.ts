@@ -1,8 +1,9 @@
 import { assert } from "@std/assert/assert";
 import { assertEquals } from "@std/assert/equals";
 import { assertObjectMatch } from "@std/assert/object-match";
+import { AssertionError } from "@std/assert/assertion-error";
 
-import { Side } from "../../shared/types.ts";
+import { getAllSides, Side } from "../../shared/types.ts";
 import { ClientMessage, ServerMessage } from "../../shared/protocol.ts";
 import { parseServerMessage } from "../../shared/parsing.ts";
 
@@ -175,4 +176,78 @@ Deno.test("chat with nick", async () => {
     assert(nMessage instanceof Object);
     assert(nMessage.kind == "chat");
     assertEquals(nMessage.data, "S(deadbeef): coolmsg");
+});
+
+Deno.test("simple bid", async () => {
+    const [w, n, e, s] = await Promise.all([
+        harness.connectToSide("W"),
+        harness.connectToSide("N"),
+        harness.connectToSide("E"),
+        harness.connectToSide("S"),
+    ]);
+    const clients: Record<Side, WebSocket> = {
+        "W": w,
+        "N": n,
+        "E": e,
+        "S": s,
+    };
+
+    const inits = [];
+    for (const side of getAllSides()) {
+        harness.sendMessage(clients[side], {
+            kind: "engine",
+            data: { kind: "init", nickname: side },
+        });
+        inits.push(harness.waitForMessage(clients[side]));
+    }
+
+    // collect init responses
+    const initResponses = await (async () => {
+        const [w, n, e, s] = await Promise.all(inits);
+        const res: Record<Side, ServerMessage> = {
+            "W": w,
+            "N": n,
+            "E": e,
+            "S": s,
+        };
+        return res;
+    })();
+
+    // find the dealer
+    let dealerSide: Side | null = null;
+    for (const side of getAllSides()) {
+        if (initResponses[side].kind == "engine" && initResponses[side].data.kind == "init") {
+            const dealer = initResponses[side].data.bidHistory[0];
+            if (dealer == side) {
+                dealerSide = side;
+                break;
+            }
+        } else {
+            throw new AssertionError("bad response");
+        }
+    }
+    assert(dealerSide !== null);
+
+    // make the bid
+    harness.sendMessage(clients[dealerSide], {
+        kind: "engine",
+        data: { kind: "bid", bid: { level: 7, denom: "NT" } },
+    });
+
+    for (
+        const bidResp of await Promise.all([
+            harness.waitForMessage(clients["W"]),
+            harness.waitForMessage(clients["N"]),
+            harness.waitForMessage(clients["E"]),
+            harness.waitForMessage(clients["S"]),
+        ])
+    ) {
+        assert(bidResp.kind == "engine" && bidResp.data.kind == "bid");
+        assertEquals(bidResp.data.side, dealerSide);
+        assert(typeof bidResp.data.bid == "object");
+        assertObjectMatch(bidResp.data.bid, {
+            level: 7,
+            denom: "NT",
+        });
+    }
 });
