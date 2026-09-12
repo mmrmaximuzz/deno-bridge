@@ -870,10 +870,11 @@ function getNickname(): string | null {
     return res;
 }
 
-function main() {
+function main(): App {
     const nickname = getNickname();
+    const sock = connectToGameServer();
     const app = {
-        sock: connectToGameServer(),
+        sock,
         pending: [],
         mySide: null,
         gen: -1,
@@ -881,6 +882,14 @@ function main() {
         needFlushTable: false,
     };
     registerEvents(app);
+    return app;
 }
 
-globalThis.addEventListener("load", main);
+globalThis.addEventListener("load", () => {
+    const app = main();
+    const debug = new URLSearchParams(location.search).has("debug");
+    if (debug) {
+        // save in global object to catch it in browser debuggers
+        (globalThis as Record<string, unknown>).app = app;
+    }
+});
