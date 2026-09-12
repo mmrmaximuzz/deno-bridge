@@ -21,13 +21,31 @@ import { ServerEngineMessage, ServerMessage } from "../shared/protocol.ts";
 
 type Position = "bottom" | "left" | "top" | "right";
 
-interface App {
+class App {
     sock: WebSocket;
     pending: [Side, Bid, number][];
     nickname: string | null;
     mySide: Side | null;
     needFlushTable: boolean;
     gen: number;
+    debug: boolean;
+
+    constructor(sock: WebSocket, nickname: string | null) {
+        this.sock = sock;
+        this.pending = [];
+        this.nickname = nickname;
+        this.mySide = null;
+        this.needFlushTable = false;
+        this.gen = 0;
+        this.debug = new URLSearchParams(location.search).has("debug");
+    }
+
+    sendmsg(msg: string): void {
+        if (this.debug) {
+            console.log(msg);
+        }
+        this.sock.send(msg);
+    }
 }
 
 const ALL_SUITS_ORDERED: Suit[] = ["S", "H", "D", "C"];
@@ -334,7 +352,7 @@ function moveCardFromHandToTable(app: App, side: Side, card: Card): void {
 }
 
 function handleCardClick(app: App, suit: Suit, rank: Rank): void {
-    app.sock.send(createCardPlayMessage(suit, rank));
+    app.sendmsg(createCardPlayMessage(suit, rank));
 }
 
 function displayPlayerHand(
@@ -487,19 +505,19 @@ function handleBidClick(elem: Element, app: App) {
         // normal contract bids
         const rawDenom = items[1];
         const denom = rawDenom == "n" ? "NT" : rawDenom.toUpperCase();
-        app.sock.send(createContractBidMessage(level, denom));
+        app.sendmsg(createContractBidMessage(level, denom));
     } else {
         // special bids
         const special = items[1];
         switch (special) {
             case "pass":
-                app.sock.send(createPassMessage());
+                app.sendmsg(createPassMessage());
                 break;
             case "x":
-                app.sock.send(createDoubleMessage());
+                app.sendmsg(createDoubleMessage());
                 break;
             case "xx":
-                app.sock.send(createRedoubleMessage());
+                app.sendmsg(createRedoubleMessage());
                 break;
             default:
                 throw new Error(`AssertionError: bad special bid: ${special}`);
@@ -773,10 +791,13 @@ function handleSubmit(app: App): void {
     }
     input.value = ""; // flush the message text
 
-    app.sock.send(createTextMessage(text));
+    app.sendmsg(createTextMessage(text));
 }
 
 function handleServerMessage(app: App, event: MessageEvent): void {
+    if (app.debug) {
+        console.log(event.data);
+    }
     const res = parseServerMessage(event.data);
     if (typeof res == "string") {
         printErrorMessage(`failed to parse server message: ${res}`);
@@ -788,7 +809,7 @@ function handleServerMessage(app: App, event: MessageEvent): void {
 function handleSocketConnect(app: App): void {
     // schedule initialization event immediately after handling open
     setTimeout(() => {
-        app.sock.send(createInitMessage(app));
+        app.sendmsg(createInitMessage(app));
     });
 }
 
@@ -802,7 +823,7 @@ function handleSocketClose(): void {
 
 function handleNextClick(app: App, button: HTMLButtonElement): void {
     resetUI();
-    app.sock.send(createInitMessage(app));
+    app.sendmsg(createInitMessage(app));
     button.disabled = true;
 }
 
@@ -878,22 +899,14 @@ function getNickname(): string | null {
 function main(): App {
     const nickname = getNickname();
     const sock = connectToGameServer();
-    const app = {
-        sock,
-        pending: [],
-        mySide: null,
-        gen: -1,
-        nickname,
-        needFlushTable: false,
-    };
+    const app = new App(sock, nickname);
     registerEvents(app);
     return app;
 }
 
 globalThis.addEventListener("load", () => {
     const app = main();
-    const debug = new URLSearchParams(location.search).has("debug");
-    if (debug) {
+    if (app.debug) {
         // save in global object to catch it in browser debuggers
         (globalThis as Record<string, unknown>).app = app;
     }
