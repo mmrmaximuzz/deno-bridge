@@ -792,6 +792,14 @@ function handleSocketConnect(app: App): void {
     });
 }
 
+function handleSocketError(event: Event): void {
+    printErrorMessage(`socket error ${event}: reload the page`);
+}
+
+function handleSocketClose(): void {
+    printErrorMessage(`connection lost: reload the page`);
+}
+
 function handleNextClick(app: App, button: HTMLButtonElement): void {
     resetUI();
     app.sock.send(createInitMessage(app));
@@ -844,6 +852,8 @@ function registerEvents(app: App): void {
     // attach websocket hooks
     app.sock.onmessage = (e) => handleServerMessage(app, e);
     app.sock.onopen = () => handleSocketConnect(app);
+    app.sock.onerror = (e) => handleSocketError(e);
+    app.sock.onclose = () => handleSocketClose();
 }
 
 function main() {
