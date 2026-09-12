@@ -172,7 +172,7 @@ function simpleFilterNSLongsuit(minLength: number): DealFilter {
     };
 }
 
-function create_tables_default(): Table[] {
+function createTablesDefault(): Table[] {
     const tokenFunc = (_arg: string) => {
         return crypto.randomUUID();
     };
@@ -221,7 +221,7 @@ function create_tables_default(): Table[] {
     ];
 }
 
-function create_tables_debug(): Table[] {
+function createTablesDebug(): Table[] {
     const tokenFunc = (arg: string) => arg;
     return [
         createTable({ name: "FullPlay", tokenFunc }),
@@ -239,11 +239,12 @@ function create_tables_debug(): Table[] {
 
 function main() {
     const args = Deno.args;
+    const debugMode = args && args.length == 1 && args[0] == "debug";
     const tables = (() => {
-        if (args && args.length == 1 && args[0] == "debug") {
-            return create_tables_debug();
+        if (debugMode) {
+            return createTablesDebug();
         }
-        return create_tables_default();
+        return createTablesDefault();
     })();
 
     const hostname = `https://${settings.hostname}:${settings.port}`;
@@ -268,7 +269,8 @@ function main() {
             if (!token) {
                 continue;
             }
-            const url = `${hostname}/${access}/${token}/static/index.html`;
+            const tail = debugMode ? "?debug" : "";
+            const url = `${hostname}/${access}/${token}/static/index.html${tail}`;
             console.log(`${side}: ${url}`);
         }
     }
