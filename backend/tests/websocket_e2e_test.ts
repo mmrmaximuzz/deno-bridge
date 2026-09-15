@@ -3,9 +3,9 @@ import { assertEquals } from "@std/assert/equals";
 import { assertObjectMatch } from "@std/assert/object-match";
 import { AssertionError } from "@std/assert/assertion-error";
 
-import { getAllSides, Side } from "../../shared/types.ts";
-import { ClientMessage, ServerMessage } from "../../shared/protocol.ts";
 import { parseServerMessage } from "../../shared/parsing.ts";
+import { ClientMessage, ServerMessage } from "../../shared/protocol.ts";
+import { getAllSides, Side } from "../../shared/types.ts";
 
 import { ConnectionManager, createConnectionManager } from "../connection.ts";
 
@@ -31,7 +31,7 @@ class WebSocketConnectionHarness {
                     case "/W":
                         return "W";
                     default:
-                        throw new Error(`AssertionError: ${url}`);
+                        throw new AssertionError(`${url}`);
                 }
             })();
             const { socket, response } = Deno.upgradeWebSocket(req);
@@ -157,9 +157,8 @@ Deno.test("init connection", async () => {
 
     harness.sendMessage(sClient, { kind: "engine", data: { kind: "init", nickname: null } });
     const sInitResponse = await harness.waitForMessage(sClient);
-
-    assert(sInitResponse instanceof Object);
     assert(sInitResponse.kind == "engine" && sInitResponse.data.kind == "init");
+
     assertEquals(sInitResponse.data.side, "S", "side must match");
     assertEquals(sInitResponse.data.hand.length, 13, "hand must be 13 cards");
     assertEquals(sInitResponse.data.gen, 0, "empty gen must be 0");
@@ -179,7 +178,6 @@ Deno.test("chat with nick", async () => {
 
     harness.sendMessage(s, { kind: "chat", data: "coolmsg" });
     const nMessage = await harness.waitForMessage(n);
-    assert(nMessage instanceof Object);
     assert(nMessage.kind == "chat");
     assertEquals(nMessage.data, "S(deadbeef): coolmsg");
 });
