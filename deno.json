@@ -1,6 +1,6 @@
 {
     "tasks": {
-        "test": "deno test --allow-net='localhost:9000' --coverage",
+        "test": "deno test --allow-net='localhost:9000'",
         "harness": "rm -rf static/*.js; deno check && deno task test && deno lint && deno fmt",
         "build": "deno bundle --platform browser --output static/main.js frontend/main.ts",
         "run-debug": "deno task build && sh scripts/gencert.sh && deno run --allow-read=server.key,server.crt,static --allow-net=127.0.0.1:60000 backend/main.ts debug"
