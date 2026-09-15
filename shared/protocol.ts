@@ -13,6 +13,7 @@ export type ServerEngineMessage =
     | {
         kind: "init";
         side: Side;
+        players: Record<Side, string | null>;
         bidHistory: [Side, Bid[]];
         hand: Card[];
         vuln: Vulnerability;

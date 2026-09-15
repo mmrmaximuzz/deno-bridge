@@ -279,6 +279,45 @@ export function parseClientMessage(data: unknown): ClientMessage | ParsingError 
     }
 }
 
+function parsePlayerSide(
+    data: Record<Side, unknown>,
+    side: Side,
+): { nickname: string | null } | null {
+    const val = data[side];
+    if (val === null || typeof val == "string") {
+        return { nickname: val };
+    }
+
+    return null;
+}
+
+function parsePlayers(data: unknown): Record<Side, string | null> | null {
+    if (typeof data != "object" || data == null) {
+        return null;
+    }
+
+    if (!("W" in data) || !("N" in data) || !("E" in data) || !("S" in data)) {
+        return null;
+    }
+
+    const [w, n, e, s] = [
+        parsePlayerSide(data, "W"),
+        parsePlayerSide(data, "N"),
+        parsePlayerSide(data, "E"),
+        parsePlayerSide(data, "S"),
+    ];
+    if (!w || !n || !e || !s) {
+        return null;
+    }
+
+    return {
+        W: w.nickname,
+        N: n.nickname,
+        E: e.nickname,
+        S: s.nickname,
+    };
+}
+
 function parseServerEngineMessage(data: unknown): ServerEngineMessage | ParsingError {
     if (typeof data != "object" || data == null || !("kind" in data)) {
         return `malformed engine.data type '${typeof data}': ${data}`;
@@ -356,7 +395,7 @@ function parseServerEngineMessage(data: unknown): ServerEngineMessage | ParsingE
         case "init": {
             if (
                 !("side" in data) || !("bidHistory" in data) || !("hand" in data) ||
-                !("vuln" in data) || !("gen" in data)
+                !("vuln" in data) || !("players" in data) || !("gen" in data)
             ) {
                 return `missing fields in 'init' message`;
             }
@@ -371,10 +410,22 @@ function parseServerEngineMessage(data: unknown): ServerEngineMessage | ParsingE
             const history = parseBids(rawHistory);
             const hand = parseHand(data.hand);
             const vuln = parseVulnerability(data.vuln);
-            if (!side || !dealer || !history || !hand || !vuln || typeof data.gen != "number") {
+            const players = parsePlayers(data.players);
+            if (
+                !side || !dealer || !history || !hand || !vuln || !players ||
+                typeof data.gen != "number"
+            ) {
                 return `bad 'init' message: ${JSON.stringify(data)}`;
             }
-            return { kind: "init", side, bidHistory: [dealer, history], hand, vuln, gen: data.gen };
+            return {
+                kind: "init",
+                side,
+                bidHistory: [dealer, history],
+                hand,
+                vuln,
+                players,
+                gen: data.gen,
+            };
         }
         default:
             return `bad server engine kind: ${data.kind}`;

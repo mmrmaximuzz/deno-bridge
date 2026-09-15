@@ -164,6 +164,12 @@ Deno.test("init connection", async () => {
     assertEquals(sInitResponse.data.hand.length, 13, "hand must be 13 cards");
     assertEquals(sInitResponse.data.gen, 0, "empty gen must be 0");
     assertEquals(sInitResponse.data.bidHistory[1], [], "no bidding history yet");
+    assertObjectMatch(sInitResponse.data.players, {
+        W: null,
+        N: null,
+        E: null,
+        S: "", // empty nickname = anonymous
+    });
 });
 
 Deno.test("chat with nick", async () => {

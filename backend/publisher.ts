@@ -129,6 +129,17 @@ class PublisherImpl implements Publisher {
     }
 
     init(side: Side, bidHistory: [Side, Bid[]], hand: Card[], vuln: Vulnerability, gen: number) {
+        const players: Record<Side, string | null> = {
+            W: null,
+            N: null,
+            E: null,
+            S: null,
+        };
+        for (const side of getAllSides()) {
+            if (this.clients[side]) {
+                players[side] = this.clients[side].nick ? this.clients[side].nick : "";
+            }
+        }
         const msg: ServerMessage = {
             kind: "engine",
             data: {
@@ -137,6 +148,7 @@ class PublisherImpl implements Publisher {
                 bidHistory,
                 hand,
                 vuln,
+                players,
                 gen,
             },
         };
