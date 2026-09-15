@@ -53,10 +53,15 @@ class App {
 const ALL_SUITS_ORDERED: Suit[] = ["S", "H", "D", "C"];
 const ALL_POSITIONS: Position[] = ["bottom", "left", "top", "right"];
 
+function die(message: string): never {
+    printErrorMessage(message);
+    throw new Error(`fatail error: ${message}`);
+}
+
 function assertGetElementById(id: string): HTMLElement {
     const elem = document.getElementById(id);
     if (!elem) {
-        throw new Error(`failed to find html element for id ${id}`);
+        die(`failed to find html element for id ${id}`);
     }
     return elem;
 }
@@ -64,9 +69,33 @@ function assertGetElementById(id: string): HTMLElement {
 function assertGetElementsByClassName(name: string): HTMLCollectionOf<Element> {
     const elem = document.getElementsByClassName(name);
     if (!elem) {
-        throw new Error(`failed to find html element for class ${name}`);
+        die(`failed to find html element for class ${name}`);
     }
     return elem;
+}
+
+function printMessage(message: string, styleName: string): void {
+    const messages = assertGetElementById("messages");
+    const time = new Date().toLocaleTimeString();
+    const line = document.createElement("div");
+    line.innerText = `${time}: ${message}`;
+    line.setAttribute("class", styleName);
+
+    // append the line and scroll the messages window
+    messages.appendChild(line);
+    messages.scrollTop = line.offsetTop;
+}
+
+function printErrorMessage(message: string): void {
+    printMessage(message, "error");
+}
+
+function printNotificationMessage(message: string): void {
+    printMessage(message, "notification");
+}
+
+function printChatMessage(message: string): void {
+    printMessage(message, "chat");
 }
 
 function contractGreaterOrEqual(b1: Contract, b2: Contract): boolean {
@@ -96,8 +125,6 @@ function suitPrettyPrint(suit: Suit): [string, string] {
             return ["♥", "suit-h"];
         case "S":
             return ["♠", "suit-s"];
-        default:
-            throw new Error("unreachable");
     }
 }
 
@@ -115,8 +142,6 @@ function bidPrettyText(bid: Bid): [string, string | undefined] {
                 return suitPrettyPrint(bid.denom);
             case "NT":
                 return ["NT", undefined];
-            default:
-                throw new Error("AssertionError: unreachable");
         }
     })();
 
@@ -126,7 +151,7 @@ function bidPrettyText(bid: Bid): [string, string | undefined] {
 function assertGetAuctionHistory(): HTMLTableElement {
     const history = assertGetElementById("auction-history");
     if (!(history instanceof HTMLTableElement)) {
-        throw new Error("bad type");
+        die(`bad type: ${typeof history}`);
     }
     return history;
 }
@@ -196,7 +221,7 @@ function getRelativePositionForSide(side: Side, playerSide: Side): Position {
         }
         currSide = nextSide(currSide);
     }
-    throw new Error("unreachable");
+    die(`unreachable: ${side}, ${playerSide}`);
 }
 
 function setMovePosition(pos: Position | null) {
@@ -298,8 +323,6 @@ function increaseTrickCount(side: Side) {
             case "N":
             case "S":
                 return assertGetElementById("ns-score");
-            default:
-                throw new Error("unreachable");
         }
     })();
     elem.innerText = `${Number(elem.innerText) + 1}`;
@@ -509,7 +532,7 @@ function handleBidClick(elem: Element, app: App) {
         const level = parseLevel(rawLevel);
         const denom = parseDenomination(rawDenom);
         if (!level || !denom) {
-            throw new Error(`AssertionError: ${elem.id}:${rawLevel}:${rawDenom}`);
+            die(`${elem.id}:${rawLevel}:${rawDenom}`);
         }
         app.sendmsg(createContractBidMessage(level, denom));
     } else {
@@ -526,33 +549,9 @@ function handleBidClick(elem: Element, app: App) {
                 app.sendmsg(createRedoubleMessage());
                 break;
             default:
-                throw new Error(`AssertionError: bad special bid: ${special}`);
+                die(`${special}`);
         }
     }
-}
-
-function printMessage(message: string, styleName: string): void {
-    const messages = assertGetElementById("messages");
-    const time = new Date().toLocaleTimeString();
-    const line = document.createElement("div");
-    line.innerText = `${time}: ${message}`;
-    line.setAttribute("class", styleName);
-
-    // append the line and scroll the messages window
-    messages.appendChild(line);
-    messages.scrollTop = line.offsetTop;
-}
-
-function printErrorMessage(message: string): void {
-    printMessage(message, "error");
-}
-
-function printNotificationMessage(message: string): void {
-    printMessage(message, "notification");
-}
-
-function printChatMessage(message: string): void {
-    printMessage(message, "chat");
 }
 
 function assertElem2Contract(id: string): Contract {
@@ -560,7 +559,7 @@ function assertElem2Contract(id: string): Contract {
     const level = parseLevel(Number(rawLevel));
     const denom = parseDenomination(rawDenom == "n" ? "NT" : rawDenom.toUpperCase());
     if (!level || !denom) {
-        throw new Error(`AssertionError: failed to parse ${id}`);
+        die(`${id}`);
     }
     return { level, denom };
 }
@@ -657,7 +656,7 @@ function processBidMessage(app: App, side: Side, bid: Bid, gen: number): void {
     auctionHistoryAdd(bid);
 
     if (!app.mySide) {
-        throw new Error("unreachable");
+        die("unreachable");
     }
     setMovePosition(getRelativePositionForSide(nextSide(side), app.mySide));
 }
@@ -665,7 +664,7 @@ function processBidMessage(app: App, side: Side, bid: Bid, gen: number): void {
 function revealFullDeal(app: App, dealer: Side, deal: Deal, lead: [Side, Card] | null) {
     let side = app.mySide;
     if (!side) {
-        throw new Error("unreachable");
+        die("unreachable");
     }
 
     for (const pos of ALL_POSITIONS) {
@@ -674,7 +673,7 @@ function revealFullDeal(app: App, dealer: Side, deal: Deal, lead: [Side, Card] |
         side = nextSide(side);
     }
     if (!app.mySide) {
-        throw new Error("AssertionError");
+        die("unreachable");
     }
 
     // display the opening lead if present
@@ -833,7 +832,7 @@ function handleNextClick(app: App, button: HTMLButtonElement): void {
 function enableNextButton() {
     const button = assertGetElementById("next-deal");
     if (!(button instanceof HTMLButtonElement)) {
-        throw new Error("bad next-deal type");
+        die("bad 'next-deal' type");
     }
     button.disabled = false;
 }
@@ -844,7 +843,7 @@ function mapBidElems(f: (arg0: HTMLElement) => void): void {
         const elem = bidElems[i];
         // dynamic cast
         if (!(elem instanceof HTMLElement)) {
-            throw new Error("AssertionError: bid is not HTMLElement");
+            die(`AssertionError: bid ${elem.id} is not HTMLElement`);
         }
         f(elem);
     }
@@ -869,7 +868,7 @@ function registerEvents(app: App): void {
     // register next button
     const next = assertGetElementById("next-deal");
     if (!(next instanceof HTMLButtonElement)) {
-        throw new Error("bad button type");
+        die("bad 'next-deal' type");
     }
     next.onclick = () => handleNextClick(app, next);
 
