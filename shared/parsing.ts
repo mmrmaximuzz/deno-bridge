@@ -3,6 +3,7 @@ import {
     ClientMessage,
     ServerEngineMessage,
     ServerMessage,
+    ServerPlayerMessage,
 } from "./protocol.ts";
 import { Bid, Card, Deal, Denomination, Level, Rank, Side, Suit, Vulnerability } from "./types.ts";
 
@@ -229,13 +230,10 @@ function parseClientEngineMessage(data: unknown): ClientEngineMessage | ParsingE
             return { kind: "cardplay", card };
         }
         case "init": {
-            if (!("nickname" in data)) {
-                return { kind: "init", nickname: null };
+            if (!("nickname" in data) || typeof data.nickname !== "string") {
+                return `malformed 'engine.init' message`;
             }
-            const nickname = (typeof data.nickname == "string" && data.nickname)
-                ? data.nickname
-                : null;
-            return { kind: "init", nickname };
+            return { kind: "init", nickname: data.nickname };
         }
         default:
             return `bad engine message kind: ${data.kind}`;
@@ -279,13 +277,15 @@ export function parseClientMessage(data: unknown): ClientMessage | ParsingError 
     }
 }
 
+// Tricky parsing part - need to distinguish null (as a parsing failure) from
+// null (as an absent player), so wrap the result
 function parsePlayerSide(
     data: Record<Side, unknown>,
     side: Side,
-): { nickname: string | null } | null {
+): { result: string | null } | null {
     const val = data[side];
     if (val === null || typeof val == "string") {
-        return { nickname: val };
+        return { result: val };
     }
 
     return null;
@@ -311,10 +311,10 @@ function parsePlayers(data: unknown): Record<Side, string | null> | null {
     }
 
     return {
-        W: w.nickname,
-        N: n.nickname,
-        E: e.nickname,
-        S: s.nickname,
+        W: w.result,
+        N: n.result,
+        E: e.result,
+        S: s.result,
     };
 }
 
@@ -325,7 +325,7 @@ function parseServerEngineMessage(data: unknown): ServerEngineMessage | ParsingE
 
     switch (data.kind) {
         case "bid": {
-            if (!("side" in data) || !("bid" in data) || !("gen" in data)) {
+            if (!("side" in data) || !("bid" in data)) {
                 return `missing fields in 'bid' message`;
             }
             const side = parseSide(data.side);
@@ -333,10 +333,7 @@ function parseServerEngineMessage(data: unknown): ServerEngineMessage | ParsingE
             if (!bid || !side) {
                 return `failed to parse data in 'engine' message: ${JSON.stringify(data.bid)}`;
             }
-            if (typeof data.gen != "number") {
-                return `bad generation number in engine message: ${data.gen}`;
-            }
-            return { kind: "bid", side, bid, gen: data.gen };
+            return { kind: "bid", side, bid };
         }
         case "contract": {
             if (!("contract" in data) || !("leader" in data)) {
@@ -395,7 +392,7 @@ function parseServerEngineMessage(data: unknown): ServerEngineMessage | ParsingE
         case "init": {
             if (
                 !("side" in data) || !("bidHistory" in data) || !("hand" in data) ||
-                !("vuln" in data) || !("players" in data) || !("gen" in data)
+                !("vuln" in data) || !("players" in data)
             ) {
                 return `missing fields in 'init' message`;
             }
@@ -411,10 +408,7 @@ function parseServerEngineMessage(data: unknown): ServerEngineMessage | ParsingE
             const hand = parseHand(data.hand);
             const vuln = parseVulnerability(data.vuln);
             const players = parsePlayers(data.players);
-            if (
-                !side || !dealer || !history || !hand || !vuln || !players ||
-                typeof data.gen != "number"
-            ) {
+            if (!side || !dealer || !history || !hand || !vuln || !players) {
                 return `bad 'init' message: ${JSON.stringify(data)}`;
             }
             return {
@@ -424,11 +418,41 @@ function parseServerEngineMessage(data: unknown): ServerEngineMessage | ParsingE
                 hand,
                 vuln,
                 players,
-                gen: data.gen,
             };
         }
         default:
             return `bad server engine kind: ${data.kind}`;
+    }
+}
+
+function parseServerPlayerMessage(data: unknown): ServerPlayerMessage | ParsingError {
+    if (typeof data !== "object" || data === null || !("kind" in data)) {
+        return `malformed '.data' field of 'player' message`;
+    }
+
+    switch (data.kind) {
+        case "connect": {
+            if (!("seat" in data) || !("nickname" in data)) {
+                return `malformed '.data' field of 'player.connect' message`;
+            }
+            const seat = parseSide(data.seat);
+            if (!seat || typeof data.nickname !== "string") {
+                return `malformed 'player.connect' message`;
+            }
+            return { kind: "connect", seat, nickname: data.nickname };
+        }
+        case "disconnect": {
+            if (!("seat" in data)) {
+                return `malformed '.data' field of 'player.disconnect' message`;
+            }
+            const seat = parseSide(data.seat);
+            if (!seat) {
+                return `malformed 'player.connect' message`;
+            }
+            return { kind: "disconnect", seat };
+        }
+        default:
+            return `bad 'player' message kind: ${data.kind}`;
     }
 }
 
@@ -466,10 +490,20 @@ export function parseServerMessage(data: unknown): ServerMessage | ParsingError 
         case "engine": {
             const res = parseServerEngineMessage(obj.data);
             if (typeof res == "string") {
-                return `malformed server engine message: ${res}`;
+                return `malformed server 'engine' message: ${res}`;
             }
             return {
                 kind: "engine",
+                data: res,
+            };
+        }
+        case "player": {
+            const res = parseServerPlayerMessage(obj.data);
+            if (typeof res == "string") {
+                return `malformed server 'player' message: ${res}`;
+            }
+            return {
+                kind: "player",
                 data: res,
             };
         }

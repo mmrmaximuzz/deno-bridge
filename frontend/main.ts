@@ -19,27 +19,31 @@ import {
     parseServerMessage,
     parseSuit,
 } from "../shared/parsing.ts";
-import { ClientMessage, ServerEngineMessage, ServerMessage } from "../shared/protocol.ts";
+
+import {
+    ClientMessage,
+    ServerEngineMessage,
+    ServerMessage,
+    ServerPlayerMessage,
+} from "../shared/protocol.ts";
 
 type Position = "bottom" | "left" | "top" | "right";
+type Players = Record<Side, string | null>;
+type NickStyle = "empty" | "anon" | "connected";
 
 class App {
     sock: WebSocket;
-    pending: [Side, Bid, number][];
-    nickname: string | null;
+    nickname: string;
     mySide: Side | null;
     needFlushTable: boolean;
-    gen: number;
     debug: boolean;
 
-    constructor(sock: WebSocket, nickname: string | null) {
+    constructor(sock: WebSocket, nickname: string, debug: boolean) {
         this.sock = sock;
-        this.pending = [];
         this.nickname = nickname;
         this.mySide = null;
         this.needFlushTable = false;
-        this.gen = 0;
-        this.debug = new URLSearchParams(location.search).has("debug");
+        this.debug = debug;
     }
 
     sendmsg(msg: ClientMessage): void {
@@ -55,7 +59,7 @@ const ALL_POSITIONS: Position[] = ["bottom", "left", "top", "right"];
 
 function die(message: string): never {
     printErrorMessage(message);
-    throw new Error(`fatail error: ${message}`);
+    throw new Error(`fatal error: ${message}`);
 }
 
 function assertGetElementById(id: string): HTMLElement {
@@ -428,24 +432,17 @@ function handleInitialState(
     bidHistory: [Side, Bid[]],
     hand: Card[],
     vuln: Vulnerability,
+    players: Players,
 ): void {
     const [dealer, history] = bidHistory;
-    labelPlayerSides(side, dealer, vuln);
+    labelPlayerSides(side, dealer, vuln, players);
     displayPlayerHand(app, hand, "bottom", true);
     auctionHistorySetDealer(dealer);
 
-    let lastContract = null;
+    let currSide = dealer;
     for (const bid of history) {
-        auctionHistoryAdd(bid);
-
-        // if bid is a contract, save the last item to disable lesser bids
-        if (typeof bid != "string") {
-            lastContract = bid;
-        }
-    }
-
-    if (lastContract) {
-        disableInactiveBids(lastContract);
+        processBidMessage(app, currSide, bid);
+        currSide = nextSide(currSide);
     }
 }
 
@@ -581,8 +578,42 @@ function disableInactiveBids(bid: Bid) {
     });
 }
 
-function labelPlayerSides(mySide: Side, dealer: Side, vuln: Vulnerability): void {
-    let side = mySide;
+function processPlayerNick(pos: Position, raw: string | null): void {
+    const [nickText, style]: [string, NickStyle] = (() => {
+        if (raw == null) {
+            return ["(empty)", "empty"];
+        }
+
+        if (raw == "") {
+            return ["[anonymous]", "anon"];
+        }
+
+        return [raw, "connected"];
+    })();
+
+    const nickElem = assertGetElementById(`${pos}-nick`);
+    nickElem.innerText = nickText;
+    switch (style) {
+        case "empty":
+            nickElem.style.color = "grey";
+            nickElem.style.fontWeight = "normal";
+            nickElem.style.fontStyle = "normal";
+            break;
+        case "anon":
+            nickElem.style.color = "black";
+            nickElem.style.fontStyle = "italic";
+            nickElem.style.fontWeight = "normal";
+            break;
+        case "connected":
+            nickElem.style.color = "black";
+            nickElem.style.fontWeight = "bold";
+            nickElem.style.fontStyle = "normal";
+            break;
+    }
+}
+
+function labelPlayerSides(mySide: Side, dealer: Side, vuln: Vulnerability, players: Players): void {
+    let side = mySide; // we are always on the bottom
     for (const pos of ALL_POSITIONS) {
         const elem = assertGetElementById(`${pos}-side`);
         elem.innerText = side;
@@ -602,6 +633,8 @@ function labelPlayerSides(mySide: Side, dealer: Side, vuln: Vulnerability): void
                 elem.style.backgroundColor = "darkred";
                 break;
         }
+
+        processPlayerNick(pos, players[side]);
         side = nextSide(side);
     }
 
@@ -628,36 +661,19 @@ function processInitMessage(
     bidHistory: [Side, Bid[]],
     hand: Card[],
     vuln: Vulnerability,
-    gen: number,
+    players: Players,
 ): void {
-    handleInitialState(app, side, bidHistory, hand, vuln);
-
     app.mySide = side;
-    app.gen = gen;
-    // apply pending updates if any
-    for (const [side, pending, gen] of app.pending) {
-        processBidMessage(app, side, pending, gen);
-    }
-
+    handleInitialState(app, side, bidHistory, hand, vuln, players);
     playNotificationSound();
 }
 
-function processBidMessage(app: App, side: Side, bid: Bid, gen: number): void {
-    if (app.gen == undefined) {
-        // didn't receive the initial message, delay handling
-        app.pending.push([side, bid, gen]);
-        return;
-    }
-    if (app.gen >= gen) {
-        // outdated message, ignore
-        return;
-    }
-    disableInactiveBids(bid);
-    auctionHistoryAdd(bid);
-
+function processBidMessage(app: App, side: Side, bid: Bid): void {
     if (!app.mySide) {
         die("unreachable");
     }
+    disableInactiveBids(bid);
+    auctionHistoryAdd(bid);
     setMovePosition(getRelativePositionForSide(nextSide(side), app.mySide));
 }
 
@@ -693,7 +709,7 @@ function displayContract(contract: string) {
 function processEngineMessage(app: App, data: ServerEngineMessage): void {
     switch (data.kind) {
         case "bid": {
-            processBidMessage(app, data.side, data.bid, data.gen);
+            processBidMessage(app, data.side, data.bid);
             playNotificationSound();
             break;
         }
@@ -760,8 +776,48 @@ function processEngineMessage(app: App, data: ServerEngineMessage): void {
             break;
         }
         case "init":
-            processInitMessage(app, data.side, data.bidHistory, data.hand, data.vuln, data.gen);
+            processInitMessage(
+                app,
+                data.side,
+                data.bidHistory,
+                data.hand,
+                data.vuln,
+                data.players,
+            );
             break;
+    }
+}
+
+function processPlayerMessage(app: App, data: ServerPlayerMessage): void {
+    switch (data.kind) {
+        case "connect": {
+            const side = app.mySide;
+            if (!side) {
+                // out-of-order message before init is done
+                return;
+            }
+
+            const seat = data.seat;
+            const nickname = data.nickname;
+            const pos = getRelativePositionForSide(seat, side);
+            processPlayerNick(pos, nickname);
+
+            const player = nickname ? `player ${nickname}` : "(anonymous)";
+            printNotificationMessage(`${player} connected to ${seat}`);
+            break;
+        }
+        case "disconnect": {
+            const side = app.mySide;
+            if (!side) {
+                // out-of-order message before init is done
+                return;
+            }
+            const seat = data.seat;
+            const pos = getRelativePositionForSide(seat, side);
+            processPlayerNick(pos, null);
+            printNotificationMessage(`${seat} disconnected`);
+            break;
+        }
     }
 }
 
@@ -778,6 +834,9 @@ function processMessage(app: App, message: ServerMessage): void {
             break;
         case "engine":
             processEngineMessage(app, message.data);
+            break;
+        case "player":
+            processPlayerMessage(app, message.data);
             break;
     }
 }
@@ -879,7 +938,7 @@ function registerEvents(app: App): void {
     app.sock.onclose = () => handleSocketClose();
 }
 
-function getNickname(): string | null {
+function getNickname(): string {
     // get seat identifier
     const seatId = location.pathname.split("/static/")[0];
     const nickKey = `nick${seatId}`;
@@ -892,16 +951,20 @@ function getNickname(): string | null {
 
     // otherwise ask user directly
     const res = prompt("Your nickname (for chat only)");
-    if (res !== null) {
+    if (res !== null && res !== "") {
         localStorage.setItem(nickKey, res);
+        return res;
     }
-    return res;
+
+    // use empty string to mark 'anonymous' players
+    return "";
 }
 
 function main(): App {
     const nickname = getNickname();
     const sock = connectToGameServer();
-    const app = new App(sock, nickname);
+    const debug = new URLSearchParams(location.search).has("debug");
+    const app = new App(sock, nickname, debug);
     registerEvents(app);
     return app;
 }

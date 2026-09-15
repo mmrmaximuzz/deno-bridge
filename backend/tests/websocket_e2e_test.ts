@@ -113,8 +113,29 @@ Deno.test.afterEach(async () => {
     await harness.teardown();
 });
 
+Deno.test("init connection", async () => {
+    const sClient = await harness.connectToSide("S");
+
+    harness.sendMessage(sClient, { kind: "engine", data: { kind: "init", nickname: "" } });
+    const sInitResponse = await harness.waitForMessage(sClient);
+    assert(sInitResponse.kind == "engine" && sInitResponse.data.kind == "init");
+
+    assertEquals(sInitResponse.data.side, "S", "side must match");
+    assertEquals(sInitResponse.data.hand.length, 13, "hand must be 13 cards");
+    assertEquals(sInitResponse.data.bidHistory[1], [], "no bidding history yet");
+    assertObjectMatch(sInitResponse.data.players, {
+        W: null,
+        N: null,
+        E: null,
+        S: "", // empty nickname = anonymous
+    });
+});
+
 Deno.test("self-chat", async () => {
     const client = await harness.connectToSide("S");
+    harness.sendMessage(client, { kind: "engine", data: { kind: "init", nickname: "" } });
+    await harness.waitForMessage(client);
+
     harness.sendMessage(client, { kind: "chat", data: "hello" });
     const response = await harness.waitForMessage(client);
     assertObjectMatch(response, {
@@ -124,12 +145,14 @@ Deno.test("self-chat", async () => {
 });
 
 Deno.test("anonymous chat", async () => {
-    const sClient = await harness.connectToSide("S");
-    const nClient = await harness.connectToSide("N");
+    const [s, n] = await Promise.all([harness.connectToSide("S"), harness.connectToSide("N")]);
+    harness.sendMessage(s, { kind: "engine", data: { kind: "init", nickname: "" } });
+    harness.sendMessage(n, { kind: "engine", data: { kind: "init", nickname: "" } });
+    await Promise.all([harness.waitForMessage(s), harness.waitForMessage(n)]);
 
-    harness.sendMessage(sClient, { kind: "chat", data: "hello" });
-    const sResponse1 = harness.waitForMessage(sClient);
-    const nResponse1 = harness.waitForMessage(nClient);
+    harness.sendMessage(s, { kind: "chat", data: "hello" });
+    const sResponse1 = harness.waitForMessage(s);
+    const nResponse1 = harness.waitForMessage(n);
     assertObjectMatch(await sResponse1, {
         kind: "chat",
         data: "[you]: hello",
@@ -139,9 +162,9 @@ Deno.test("anonymous chat", async () => {
         data: "S: hello",
     });
 
-    harness.sendMessage(nClient, { kind: "chat", data: "world" });
-    const sResponse2 = harness.waitForMessage(sClient);
-    const nResponse2 = harness.waitForMessage(nClient);
+    harness.sendMessage(n, { kind: "chat", data: "world" });
+    const sResponse2 = harness.waitForMessage(s);
+    const nResponse2 = harness.waitForMessage(n);
     assertObjectMatch(await sResponse2, {
         kind: "chat",
         data: "N: world",
@@ -152,29 +175,11 @@ Deno.test("anonymous chat", async () => {
     });
 });
 
-Deno.test("init connection", async () => {
-    const sClient = await harness.connectToSide("S");
-
-    harness.sendMessage(sClient, { kind: "engine", data: { kind: "init", nickname: null } });
-    const sInitResponse = await harness.waitForMessage(sClient);
-    assert(sInitResponse.kind == "engine" && sInitResponse.data.kind == "init");
-
-    assertEquals(sInitResponse.data.side, "S", "side must match");
-    assertEquals(sInitResponse.data.hand.length, 13, "hand must be 13 cards");
-    assertEquals(sInitResponse.data.gen, 0, "empty gen must be 0");
-    assertEquals(sInitResponse.data.bidHistory[1], [], "no bidding history yet");
-    assertObjectMatch(sInitResponse.data.players, {
-        W: null,
-        N: null,
-        E: null,
-        S: "", // empty nickname = anonymous
-    });
-});
-
 Deno.test("chat with nick", async () => {
     const [s, n] = await Promise.all([harness.connectToSide("S"), harness.connectToSide("N")]);
     harness.sendMessage(s, { kind: "engine", data: { kind: "init", nickname: "deadbeef" } });
-    await harness.waitForMessage(s); // ignore response
+    harness.sendMessage(n, { kind: "engine", data: { kind: "init", nickname: "" } });
+    await Promise.all([harness.waitForMessage(s), harness.waitForMessage(n)]); // ignore response
 
     harness.sendMessage(s, { kind: "chat", data: "coolmsg" });
     const nMessage = await harness.waitForMessage(n);

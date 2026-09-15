@@ -35,11 +35,15 @@ function prettyPrintFinalContract(contract: FinalContract) {
 export interface Publisher {
     // messages
     notify(msg: string, to?: Side | WebSocket): void;
-    error(msg: string, to: Side): void;
+    error(msg: string, to: Side | WebSocket): void;
     fatal(msg: string): void;
 
     // chat
     chat(side: Side, msg: string): void;
+
+    // player connect/disconnected
+    connected(side: Side, nick: Nickname): void;
+    disconnected(side: Side): void;
 
     // game
     init(
@@ -47,9 +51,8 @@ export interface Publisher {
         bidHistory: [Side, Bid[]],
         hand: Card[],
         vuln: Vulnerability,
-        gen: number,
     ): void;
-    bid(side: Side, bid: Bid, gen: number): void;
+    bid(side: Side, bid: Bid): void;
     contract(contract: FinalContract): void;
     finish(deal: Deal, dealer: Side, lead: [Side, Card] | null): void;
     startplay(dummy: Side, table: Card[]): void;
@@ -57,9 +60,9 @@ export interface Publisher {
     trick(winner: Side): void;
 }
 
-export type Nickname = string | null; // anonymous if null
+export type Nickname = string; // anonymous is empty string
 export type Client = { conn: WebSocket; nick: Nickname };
-export type Clients = Record<Side, { conn: WebSocket; nick: string | null } | null>;
+export type Clients = Record<Side, { conn: WebSocket; nick: Nickname } | null>;
 
 class PublisherImpl implements Publisher {
     clients: Clients;
@@ -118,9 +121,13 @@ class PublisherImpl implements Publisher {
         }
     }
 
-    error(err: string, to: Side): void {
+    error(err: string, to: Side | WebSocket): void {
         const msg: ServerMessage = { kind: "error", data: `server: ${err}` };
-        this.unicast(to, msg);
+        if (typeof to == "string") {
+            this.unicast(to, msg);
+        } else {
+            to.send(JSON.stringify(msg));
+        }
     }
 
     fatal(err: string): void {
@@ -128,16 +135,58 @@ class PublisherImpl implements Publisher {
         this.broadcast(msg);
     }
 
-    init(side: Side, bidHistory: [Side, Bid[]], hand: Card[], vuln: Vulnerability, gen: number) {
+    connected(side: Side, nickname: Nickname): void {
+        // notify others
+        for (const other of getAllSides()) {
+            if (other == side) {
+                // do not send to yourself
+                continue;
+            }
+            const msg: ServerMessage = {
+                kind: "player",
+                data: {
+                    kind: "connect",
+                    seat: side,
+                    nickname,
+                },
+            };
+            this.unicast(other, msg);
+        }
+    }
+
+    disconnected(side: Side): void {
+        // notify others
+        for (const other of getAllSides()) {
+            if (other == side) {
+                // do not send to yourself
+                continue;
+            }
+            const msg: ServerMessage = {
+                kind: "player",
+                data: {
+                    kind: "disconnect",
+                    seat: side,
+                },
+            };
+            this.unicast(other, msg);
+        }
+    }
+
+    init(
+        side: Side,
+        bidHistory: [Side, Bid[]],
+        hand: Card[],
+        vuln: Vulnerability,
+    ) {
         const players: Record<Side, string | null> = {
             W: null,
             N: null,
             E: null,
             S: null,
         };
-        for (const side of getAllSides()) {
-            if (this.clients[side]) {
-                players[side] = this.clients[side].nick ? this.clients[side].nick : "";
+        for (const other of getAllSides()) {
+            if (this.clients[other]) {
+                players[other] = this.clients[other].nick;
             }
         }
         const msg: ServerMessage = {
@@ -149,20 +198,18 @@ class PublisherImpl implements Publisher {
                 hand,
                 vuln,
                 players,
-                gen,
             },
         };
         this.unicast(side, msg);
     }
 
-    bid(side: Side, bid: Bid, gen: number): void {
+    bid(side: Side, bid: Bid): void {
         const msg: ServerMessage = {
             kind: "engine",
             data: {
                 kind: "bid",
                 side,
                 bid,
-                gen,
             },
         };
         this.broadcast(msg);
@@ -230,7 +277,7 @@ class PublisherImpl implements Publisher {
 }
 
 export function createPublisher(
-    clients: Record<Side, { conn: WebSocket; nick: string | null } | null>,
+    clients: Record<Side, { conn: WebSocket; nick: string } | null>,
 ): Publisher {
     return new PublisherImpl(clients);
 }
