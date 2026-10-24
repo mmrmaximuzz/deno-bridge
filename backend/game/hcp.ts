@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { Card, Deal, Side } from "../../shared/types.ts";
 
 export function hcp(card: Card): number {

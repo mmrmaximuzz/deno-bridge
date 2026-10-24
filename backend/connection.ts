@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { Bid, Card, Deal, getPair, nextSide, Side, Vulnerability } from "../shared/types.ts";
 import { ClientEngineMessage } from "../shared/protocol.ts";
 import { parseClientMessage } from "../shared/parsing.ts";

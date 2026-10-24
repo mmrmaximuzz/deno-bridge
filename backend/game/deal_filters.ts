@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { Deal } from "../../shared/types.ts";
 
 export type DealFilter = {

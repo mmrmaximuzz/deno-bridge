@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { Bid, Card, Deal, Side, Vulnerability } from "./types.ts";
 
 export type ClientEngineMessage =

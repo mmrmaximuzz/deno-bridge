@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { Card, Deal, getAllSides, Rank, Side, Suit, Vulnerability } from "../../shared/types.ts";
 
 import { DealFilter } from "./deal_filters.ts";

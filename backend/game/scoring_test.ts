@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { assertEquals } from "@std/assert/equals";
 
 import { ContractStatus, Denomination, Level, Vulnerability } from "../../shared/types.ts";

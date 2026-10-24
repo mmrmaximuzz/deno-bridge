@@ -1,12 +1,13 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { serveDir } from "@std/http/file-server";
 
 import { Deal, getAllSides, Side, Suit } from "../shared/types.ts";
 
 import { ConnectionManager, createConnectionManager, Tweaks } from "./connection.ts";
 import { DealFilter, noFilter } from "./game/deal_filters.ts";
+import { evalHandsHcp } from "./game/hcp.ts";
 
 import settings from "../settings.json" with { type: "json" };
-import { evalHandsHcp } from "./game/hcp.ts";
 
 type Tokens = Record<Side, string | null>;
 type Table = {

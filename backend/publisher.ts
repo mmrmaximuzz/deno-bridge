@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { ServerMessage } from "../shared/protocol.ts";
 import { Bid, Card, Deal, getAllSides, nextSide, Side, Vulnerability } from "../shared/types.ts";
 

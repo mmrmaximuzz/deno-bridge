@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // side-related types and operations
 export type Side = "W" | "N" | "E" | "S";
 export type Pair = "WE" | "NS";

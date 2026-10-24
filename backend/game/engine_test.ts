@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { Card, Deal, Rank, Suit } from "../../shared/types.ts";
 
 import { createEngine, EngineInput, GameEvent } from "./engine.ts";

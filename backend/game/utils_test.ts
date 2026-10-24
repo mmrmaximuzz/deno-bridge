@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { assert, assertEquals, assertFalse, assertThrows } from "@std/assert";
 
 import { allDifferent, compare2Tuples, sideNSDynamicCast, sideWEDynamicCast } from "./utils.ts";

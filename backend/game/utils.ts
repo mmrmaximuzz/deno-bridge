@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { Side } from "../../shared/types.ts";
 
 export function sideWEDynamicCast(side: Side): "W" | "E" {

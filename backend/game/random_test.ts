@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { assert } from "@std/assert/assert";
 import { assertThrows } from "@std/assert/throws";
 import { assertEquals } from "@std/assert/equals";

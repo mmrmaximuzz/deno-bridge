@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { assert, assertEquals } from "@std/assert";
 
 import { getPair, getPartner, nextSide, samePairs } from "./types.ts";

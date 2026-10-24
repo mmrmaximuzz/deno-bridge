@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import { getPair, Level, Vulnerability } from "../../shared/types.ts";
 
 import { FinalContract } from "./bidding.ts";
