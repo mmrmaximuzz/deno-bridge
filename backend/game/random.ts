@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { Card, Deal, getAllSides, Rank, Side, Suit, Vulnerability } from "../../shared/types.ts";
+import { Card, Deal, Rank, Suit } from "../../shared/types.ts";
 
 import { DealFilter } from "./deal_filters.ts";
 import {} from "./utils.ts";
@@ -14,16 +14,6 @@ export function unbiasedRandRange(limit: number): number {
             return value % limit;
         }
     }
-}
-
-export function getRandomSide(): Side {
-    const allSides = getAllSides();
-    return allSides[unbiasedRandRange(allSides.length)];
-}
-
-export function getRandomVulnerability(): Vulnerability {
-    const ALL: Vulnerability[] = ["NONE", "NS", "WE", "BOTH"];
-    return ALL[unbiasedRandRange(ALL.length)];
 }
 
 export function getRandomDeal(): Deal {

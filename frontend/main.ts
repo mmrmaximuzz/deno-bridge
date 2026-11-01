@@ -385,6 +385,11 @@ function handleCardClick(app: App, suit: Suit, rank: Rank): void {
     app.sendmsg(createCardPlayMessage(suit, rank));
 }
 
+function displayBoardNumber(boardNum: number): void {
+    const boardNumElem = assertGetElementById("board-number");
+    boardNumElem.innerText = String(boardNum);
+}
+
 function displayPlayerHand(
     app: App,
     hand: [Suit, Rank][],
@@ -430,6 +435,7 @@ function displayPlayerHand(
 function handleInitialState(
     app: App,
     side: Side,
+    boardNum: number,
     bidHistory: [Side, Bid[]],
     hand: Card[],
     vuln: Vulnerability,
@@ -437,6 +443,7 @@ function handleInitialState(
 ): void {
     const [dealer, history] = bidHistory;
     labelPlayerSides(side, dealer, vuln, players);
+    displayBoardNumber(boardNum);
     displayPlayerHand(app, hand, "bottom", true);
     auctionHistorySetDealer(dealer);
 
@@ -659,13 +666,14 @@ function playPopSound(): void {
 function processInitMessage(
     app: App,
     side: Side,
+    boardNum: number,
     bidHistory: [Side, Bid[]],
     hand: Card[],
     vuln: Vulnerability,
     players: Players,
 ): void {
     app.mySide = side;
-    handleInitialState(app, side, bidHistory, hand, vuln, players);
+    handleInitialState(app, side, boardNum, bidHistory, hand, vuln, players);
     playNotificationSound();
 }
 
@@ -780,6 +788,7 @@ function processEngineMessage(app: App, data: ServerEngineMessage): void {
             processInitMessage(
                 app,
                 data.side,
+                data.boardNum,
                 data.bidHistory,
                 data.hand,
                 data.vuln,

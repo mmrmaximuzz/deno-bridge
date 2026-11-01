@@ -8,7 +8,19 @@ import {
 } from "./protocol.ts";
 import { Bid, Card, Deal, Denomination, Level, Rank, Side, Suit, Vulnerability } from "./types.ts";
 
-export function parseSide(rawSide: unknown): Side | null {
+function parseInteger(rawNum: unknown): number | null {
+    if (typeof rawNum != "number") {
+        return null;
+    }
+
+    if (Math.floor(rawNum) != rawNum) {
+        return null;
+    }
+
+    return rawNum;
+}
+
+function parseSide(rawSide: unknown): Side | null {
     switch (rawSide) {
         case "W":
         case "N":
@@ -393,7 +405,7 @@ function parseServerEngineMessage(data: unknown): ServerEngineMessage | ParsingE
         case "init": {
             if (
                 !("side" in data) || !("bidHistory" in data) || !("hand" in data) ||
-                !("vuln" in data) || !("players" in data)
+                !("vuln" in data) || !("players" in data) || !("boardNum" in data)
             ) {
                 return `missing fields in 'init' message`;
             }
@@ -404,17 +416,19 @@ function parseServerEngineMessage(data: unknown): ServerEngineMessage | ParsingE
 
             const [rawDealer, rawHistory] = data.bidHistory;
             const side = parseSide(data.side);
+            const boardNum = parseInteger(data.boardNum);
             const dealer = parseSide(rawDealer);
             const history = parseBids(rawHistory);
             const hand = parseHand(data.hand);
             const vuln = parseVulnerability(data.vuln);
             const players = parsePlayers(data.players);
-            if (!side || !dealer || !history || !hand || !vuln || !players) {
+            if (!side || !dealer || !history || !hand || !vuln || !players || !boardNum) {
                 return `bad 'init' message: ${JSON.stringify(data)}`;
             }
             return {
                 kind: "init",
                 side,
+                boardNum,
                 bidHistory: [dealer, history],
                 hand,
                 vuln,

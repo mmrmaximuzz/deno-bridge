@@ -6,8 +6,7 @@ Host and play contract bridge with your friends.
 
 Typescript (Deno) + Web, zero dependencies.
 
-The project is in early stage of development. I don't recommend it for any
-serious use.
+The project is in early stage of development. I don't recommend it for any serious use.
 
 ## License
 

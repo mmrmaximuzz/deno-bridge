@@ -27,7 +27,7 @@ export function sideNSDynamicCast(side: Side): "N" | "S" {
 
 export function allDifferent<T>(xs: T[], comparator?: (a: T, b: T) => number): boolean {
     // avoid modifying the input array
-    const vals = ([] as T[]).concat(xs).sort();
+    const vals = ([] as T[]).concat(xs).sort(comparator);
 
     for (let i = 0; i < vals.length - 1; ++i) {
         if (comparator) {

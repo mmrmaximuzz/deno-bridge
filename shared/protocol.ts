@@ -14,6 +14,7 @@ export type ServerEngineMessage =
     | {
         kind: "init";
         side: Side;
+        boardNum: number;
         players: Record<Side, string | null>;
         bidHistory: [Side, Bid[]];
         hand: Card[];

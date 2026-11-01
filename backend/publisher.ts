@@ -49,6 +49,7 @@ export interface Publisher {
     // game
     init(
         side: Side,
+        boardNum: number,
         bidHistory: [Side, Bid[]],
         hand: Card[],
         vuln: Vulnerability,
@@ -175,6 +176,7 @@ class PublisherImpl implements Publisher {
 
     init(
         side: Side,
+        boardNum: number,
         bidHistory: [Side, Bid[]],
         hand: Card[],
         vuln: Vulnerability,
@@ -195,6 +197,7 @@ class PublisherImpl implements Publisher {
             data: {
                 kind: "init",
                 side,
+                boardNum,
                 bidHistory,
                 hand,
                 vuln,

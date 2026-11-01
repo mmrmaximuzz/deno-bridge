@@ -6,8 +6,9 @@ import { parseClientMessage } from "../shared/parsing.ts";
 import { createEngine, Engine, GameEvent } from "./game/engine.ts";
 import { FinalContract } from "./game/bidding.ts";
 import { DealFilter, noFilter } from "./game/deal_filters.ts";
-import { generateHandWithFilter, getRandomSide, getRandomVulnerability } from "./game/random.ts";
+import { generateHandWithFilter } from "./game/random.ts";
 import { Clients, createPublisher, Nickname, Publisher } from "./publisher.ts";
+import { canonicalBoardParams } from "./game/boards.ts";
 
 export interface ConnectionManager {
     register(side: Side, sock: WebSocket): void;
@@ -34,11 +35,11 @@ class ConnectionManagerImpl implements ConnectionManager {
     game: Game;
     tweaks: Tweaks;
     publisher: Publisher;
+    boardNum: number;
 
     createNewGame(): Game {
-        const dealer = getRandomSide();
-        const vuln = getRandomVulnerability();
         const deal = generateHandWithFilter(this.tweaks.filter);
+        const [dealer, vuln] = canonicalBoardParams(this.boardNum);
         const engine = createEngine(deal, dealer, vuln);
         return {
             deal,
@@ -51,7 +52,8 @@ class ConnectionManagerImpl implements ConnectionManager {
         };
     }
 
-    reload(): void {
+    nextGame(): void {
+        this.boardNum++;
         this.game = this.createNewGame();
         this.publisher = createPublisher(this.clients);
     }
@@ -59,6 +61,7 @@ class ConnectionManagerImpl implements ConnectionManager {
     constructor(tweaks?: Tweaks) {
         this.clients = { W: null, N: null, E: null, S: null };
         this.tweaks = tweaks ? tweaks : { biddingOnly: false, nsOnly: false, filter: noFilter() };
+        this.boardNum = 1;
         this.game = this.createNewGame();
         this.publisher = createPublisher(this.clients);
 
@@ -85,6 +88,7 @@ class ConnectionManagerImpl implements ConnectionManager {
         const game = this.game;
         this.publisher.init(
             side,
+            this.boardNum,
             extractBidHistory(game),
             game.deal[side],
             game.vuln,
@@ -121,7 +125,7 @@ class ConnectionManagerImpl implements ConnectionManager {
                             this.publisher.finish(this.game.deal, this.game.dealer, null);
 
                             // passout finishes the game, reset the state
-                            this.reload();
+                            this.nextGame();
                             if (this.tweaks.nsOnly) {
                                 this.passIfOpponents(this.game.dealer);
                             }
@@ -132,7 +136,7 @@ class ConnectionManagerImpl implements ConnectionManager {
                             if (this.tweaks.biddingOnly) {
                                 // finish the game if bidding only
                                 this.publisher.finish(this.game.deal, this.game.dealer, null);
-                                this.reload();
+                                this.nextGame();
                                 if (this.tweaks.nsOnly) {
                                     this.passIfOpponents(this.game.dealer);
                                 }
@@ -183,7 +187,7 @@ class ConnectionManagerImpl implements ConnectionManager {
                                 this.game.dealer,
                                 this.game.oplead,
                             );
-                            this.reload();
+                            this.nextGame();
                             break;
                         default:
                             this.die(`AssertionError: impossible cardplay response ${event}`);
