@@ -9,6 +9,7 @@ import { DealFilter, noFilter } from "./game/deal_filters.ts";
 import { generateHandWithFilter } from "./game/random.ts";
 import { Clients, createPublisher, Nickname, Publisher } from "./publisher.ts";
 import { canonicalBoardParams } from "./game/boards.ts";
+import { scoreContract } from "./game/scoring.ts";
 
 export interface ConnectionManager {
     register(side: Side, sock: WebSocket): void;
@@ -121,8 +122,12 @@ class ConnectionManagerImpl implements ConnectionManager {
                             break;
 
                         case "PassOut":
-                            this.publisher.notify("passout, for next deal click the button");
-                            this.publisher.finish(this.game.deal, this.game.dealer, null);
+                            this.publisher.finish(
+                                this.game.deal,
+                                0, // passouts are zero points
+                                this.game.dealer,
+                                null,
+                            );
 
                             // passout finishes the game, reset the state
                             this.nextGame();
@@ -130,12 +135,17 @@ class ConnectionManagerImpl implements ConnectionManager {
                                 this.passIfOpponents(this.game.dealer);
                             }
                             break;
-
                         case "ContractReached":
                             this.publisher.contract(event.contract);
                             if (this.tweaks.biddingOnly) {
                                 // finish the game if bidding only
-                                this.publisher.finish(this.game.deal, this.game.dealer, null);
+                                const nsResult = 0; // if bidding only, no score applied
+                                this.publisher.finish(
+                                    this.game.deal,
+                                    nsResult,
+                                    this.game.dealer,
+                                    null,
+                                );
                                 this.nextGame();
                                 if (this.tweaks.nsOnly) {
                                     this.passIfOpponents(this.game.dealer);
@@ -173,22 +183,37 @@ class ConnectionManagerImpl implements ConnectionManager {
                         case "CardPlayed":
                             this.publisher.playcard(event.side, event.card);
                             break;
-                        case "DummyRevealed": {
+                        case "DummyRevealed":
                             this.publisher.startplay(event.side, event.hand);
                             break;
-                        }
-                        case "TrickCompleted": {
+                        case "TrickCompleted":
                             this.publisher.trick(event.winner);
                             break;
-                        }
-                        case "DealFinished":
+                        case "DealFinished": {
+                            const [mult, tricks] = (() => {
+                                switch (getPair(this.game.dealer)) {
+                                    case "NS":
+                                        return [+1, event.tricksNS];
+                                    case "WE":
+                                        return [-1, event.tricksWE];
+                                }
+                            })();
+                            const contract = this.game.contract;
+                            if (!contract) {
+                                this.die("unreachable: deal finished when no contract");
+                            }
+                            const vulnerability = this.game.vuln;
+                            const nsScore = mult * scoreContract(contract, vulnerability, tricks);
+                            console.log(contract, vulnerability, tricks, nsScore); // TODO: remove after debug
                             this.publisher.finish(
                                 this.game.deal,
+                                nsScore,
                                 this.game.dealer,
                                 this.game.oplead,
                             );
                             this.nextGame();
                             break;
+                        }
                         default:
                             this.die(`AssertionError: impossible cardplay response ${event}`);
                     }

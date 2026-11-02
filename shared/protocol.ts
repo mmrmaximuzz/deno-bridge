@@ -22,7 +22,7 @@ export type ServerEngineMessage =
     }
     | { kind: "bid"; side: Side; bid: Bid }
     | { kind: "contract"; contract: string; leader: Side }
-    | { kind: "nextdeal"; reveal: Deal; dealer: Side; lead: [Side, Card] | null }
+    | { kind: "nextdeal"; nsResult: number; reveal: Deal; dealer: Side; lead: [Side, Card] | null }
     | { kind: "startplay"; dummy: Side; table: Card[] }
     | { kind: "playcard"; side: Side; card: Card }
     | { kind: "trick"; winner: Side };

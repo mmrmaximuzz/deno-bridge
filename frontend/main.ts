@@ -333,6 +333,16 @@ function increaseTrickCount(side: Side) {
     elem.innerText = `${Number(elem.innerText) + 1}`;
 }
 
+function setDealResult(nsResult: number): void {
+    const elem = assertGetElementById("ns-points");
+    elem.innerText = String(nsResult);
+}
+
+function clearDealResult(): void {
+    const elem = assertGetElementById("ns-points");
+    elem.innerText = "";
+}
+
 function resetTrickCount() {
     assertGetElementById("we-score").innerText = "0";
     assertGetElementById("ns-score").innerText = "0";
@@ -776,6 +786,7 @@ function processEngineMessage(app: App, data: ServerEngineMessage): void {
             break;
         }
         case "nextdeal": {
+            setDealResult(data.nsResult);
             setTimeout(() => {
                 // give some time enough to view the last trick
                 revealFullDeal(app, data.dealer, data.reveal, data.lead);
@@ -785,6 +796,7 @@ function processEngineMessage(app: App, data: ServerEngineMessage): void {
             break;
         }
         case "init":
+            clearDealResult();
             processInitMessage(
                 app,
                 data.side,

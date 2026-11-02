@@ -56,7 +56,7 @@ export interface Publisher {
     ): void;
     bid(side: Side, bid: Bid): void;
     contract(contract: FinalContract): void;
-    finish(deal: Deal, dealer: Side, lead: [Side, Card] | null): void;
+    finish(deal: Deal, nsResult: number, dealer: Side, lead: [Side, Card] | null): void;
     startplay(dummy: Side, table: Card[]): void;
     playcard(side: Side, card: Card): void;
     trick(winner: Side): void;
@@ -231,12 +231,13 @@ class PublisherImpl implements Publisher {
         this.broadcast(msg);
     }
 
-    finish(reveal: Deal, dealer: Side, lead: [Side, Card] | null): void {
+    finish(reveal: Deal, nsResult: number, dealer: Side, lead: [Side, Card] | null): void {
         const msg: ServerMessage = {
             kind: "engine",
             data: {
                 kind: "nextdeal",
                 reveal,
+                nsResult,
                 dealer,
                 lead,
             },

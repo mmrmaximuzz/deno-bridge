@@ -391,16 +391,20 @@ function parseServerEngineMessage(data: unknown): ServerEngineMessage | ParsingE
             return { kind: "trick", winner };
         }
         case "nextdeal": {
-            if (!("dealer" in data) || !("reveal" in data) || !("lead" in data)) {
+            if (
+                !("dealer" in data) || !("reveal" in data) || !("lead" in data) ||
+                !("nsResult" in data)
+            ) {
                 return `missing fields in 'nextdeal message`;
             }
             const dealer = parseSide(data.dealer);
             const reveal = parseFullDeal(data.reveal);
+            const nsResult = parseInteger(data.nsResult);
             const lead = data.lead != null ? parseLead(data.lead) : null;
-            if (!reveal || !dealer || (data.lead != null && lead === null)) {
+            if (!reveal || !dealer || (data.lead != null && lead === null) || !nsResult) {
                 return `bad 'nextdeal' message: ${JSON.stringify(data)}`;
             }
-            return { kind: "nextdeal", dealer, reveal, lead };
+            return { kind: "nextdeal", dealer, reveal, lead, nsResult };
         }
         case "init": {
             if (
