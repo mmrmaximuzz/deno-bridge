@@ -205,16 +205,10 @@ function auctionHistoryAdd(bid: Bid): void {
     }
 }
 
-const ALL_CARDS_PRETTY = {
-    S: ["🂢", "🂣", "🂤", "🂥", "🂦", "🂧", "🂨", "🂩", "🂪", "🂫", "🂭", "🂮", "🂡"],
-    H: ["🂲", "🂳", "🂴", "🂵", "🂶", "🂷", "🂸", "🂹", "🂺", "🂻", "🂽", "🂾", "🂱"],
-    D: ["🃂", "🃃", "🃄", "🃅", "🃆", "🃇", "🃈", "🃉", "🃊", "🃋", "🃍", "🃎", "🃁"],
-    C: ["🃒", "🃓", "🃔", "🃕", "🃖", "🃗", "🃘", "🃙", "🃚", "🃛", "🃝", "🃞", "🃑"],
-};
-
-function cardPrettyPrint(rank: Rank, suit: Suit): string {
+function cardPrettyPrint(rank: Rank): string {
+    const ALL_CARDS = "23456789tJQKA";
     const rankOffset = rank - 2;
-    return ALL_CARDS_PRETTY[suit][rankOffset];
+    return ALL_CARDS[rankOffset];
 }
 
 function getRelativePositionForSide(side: Side, playerSide: Side): Position {
@@ -364,10 +358,10 @@ function placeCardToTable(app: App, pos: string, card: Card): void {
 
     const cardElem = document.createElement("span");
     const [suit, rank] = card;
-    const cardSymbol = cardPrettyPrint(rank, suit);
-    const [_, suitStyle] = suitPrettyPrint(suit);
+    const cardSymbol = cardPrettyPrint(rank);
+    const [suitSymbol, suitStyle] = suitPrettyPrint(suit);
     cardElem.className = suitStyle;
-    cardElem.innerText = `${cardSymbol}`;
+    cardElem.innerText = `${cardSymbol}${suitSymbol}`;
 
     const cardHolderElem = document.createElement("span");
     cardHolderElem.className = "singlecard";
@@ -416,15 +410,16 @@ function displayPlayerHand(
     };
 
     for (const [suit, rank] of hand) {
-        const repr = cardPrettyPrint(rank, suit);
+        const repr = cardPrettyPrint(rank);
         template[suit].push([rank, repr]);
     }
 
     const handDiv = document.createElement("div");
     for (const suit of ALL_SUITS_ORDERED) {
-        const [_, suitStyle] = suitPrettyPrint(suit);
+        const [suitSymbol, suitStyle] = suitPrettyPrint(suit);
         const suitDiv = document.createElement("div");
         suitDiv.className = suitStyle;
+        suitDiv.innerText = `${suitSymbol} `;
         for (const [rank, rankRepr] of template[suit]) {
             const card = document.createElement("span");
             card.id = `card-${suit}-${rank}`;

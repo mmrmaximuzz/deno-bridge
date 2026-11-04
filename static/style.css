@@ -33,6 +33,7 @@
 
 .center {
     display: flex;
+    font-family: monospace;
     justify-content: center;
     align-items: center;
     margin: 1px;
@@ -40,6 +41,7 @@
 
 .singlecard {
     display: flex;
+    font-family: monospace;
     justify-content: center;
     align-items: center;
     background-color: white;
@@ -50,6 +52,8 @@
 
 .card-in-hand {
     font-size: x-large;
+    font-family: monospace;
+    margin: 2px;
 }
 
 #auction-result {
