@@ -85,7 +85,12 @@ class ConnectionManagerImpl implements ConnectionManager {
     }
 
     handleInitMessage(conn: WebSocket, side: Side, nick: Nickname): void {
-        this.clients[side] = { conn, nick };
+        let fresh = false;
+        if (!this.clients[side]) {
+            this.clients[side] = { conn, nick };
+            fresh = true;
+        }
+
         const game = this.game;
         this.publisher.init(
             side,
@@ -94,7 +99,11 @@ class ConnectionManagerImpl implements ConnectionManager {
             game.deal[side],
             game.vuln,
         );
-        this.publisher.connected(side, nick);
+
+        if (fresh) {
+            // notify only really fresh connections
+            this.publisher.connected(side, nick);
+        }
     }
 
     handleEngineBidMessage(side: Side, bid: Bid): void {
