@@ -20,7 +20,7 @@ function parseInteger(rawNum: unknown): number | null {
     return rawNum;
 }
 
-function parseSide(rawSide: unknown): Side | null {
+export function parseSide(rawSide: unknown): Side | null {
     switch (rawSide) {
         case "W":
         case "N":

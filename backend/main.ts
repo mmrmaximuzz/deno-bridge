@@ -8,6 +8,7 @@ import { DealFilter, noFilter } from "./game/deal_filters.ts";
 import { evalHandsHcp } from "./game/hcp.ts";
 
 import settings from "../settings.json" with { type: "json" };
+import { parsePbnDeals } from "./pbn.ts";
 
 type Tokens = Record<Side, string | null>;
 type Table = {
@@ -111,12 +112,12 @@ function handler(req: Request, app: App): Response | Promise<Response> {
 type TableArgs = {
     name: string;
     tweaks?: Tweaks;
-    tokenFunc: (rawstr: string) => string;
+    tokenFunc?: (rawstr: string) => string;
 };
 
 function createTable(args: TableArgs): Table {
     const name = args.name;
-    const tokenFunc = args.tokenFunc;
+    const tokenFunc = args.tokenFunc ? args.tokenFunc : (_arg: string) => crypto.randomUUID();
     const tweaks = args.tweaks;
 
     const accessToken = tokenFunc(name);
@@ -174,13 +175,10 @@ function simpleFilterNSLongsuit(minLength: number): DealFilter {
 }
 
 function createTablesDefault(): Table[] {
-    const tokenFunc = (_arg: string) => {
-        return crypto.randomUUID();
-    };
     return [
         // default playing tables
-        createTable({ name: "FullPlay A", tokenFunc }),
-        createTable({ name: "FullPlay B", tokenFunc }),
+        createTable({ name: "FullPlay A" }),
+        createTable({ name: "FullPlay B" }),
 
         // bidding tables
         createTable({
@@ -190,7 +188,6 @@ function createTablesDefault(): Table[] {
                 nsOnly: true,
                 filter: noFilter(),
             },
-            tokenFunc,
         }),
         createTable({
             name: "NS Bidding B (game-like 22+)",
@@ -199,7 +196,6 @@ function createTablesDefault(): Table[] {
                 nsOnly: true,
                 filter: simpleFilterNSHcp(22),
             },
-            tokenFunc,
         }),
         createTable({
             name: "NS Bidding C (slam-like 29+)",
@@ -208,7 +204,6 @@ function createTablesDefault(): Table[] {
                 nsOnly: true,
                 filter: simpleFilterNSHcp(29),
             },
-            tokenFunc,
         }),
         createTable({
             name: "NS Bidding D (longsuit 6+)",
@@ -217,13 +212,23 @@ function createTablesDefault(): Table[] {
                 nsOnly: true,
                 filter: simpleFilterNSLongsuit(6),
             },
-            tokenFunc,
+        }),
+    ];
+}
+
+function createTableBiddingWithDeals(deals: Deal[]): Table[] {
+    return [
+        createTable({
+            name: "PbnBidding",
+            tweaks: { biddingOnly: true, nsOnly: true, filter: noFilter(), deals },
         }),
     ];
 }
 
 function createTablesDebug(): Table[] {
+    // debug tables have simple access tokens to ease debugging
     const tokenFunc = (arg: string) => arg;
+
     return [
         createTable({ name: "FullPlay", tokenFunc }),
         createTable({
@@ -238,12 +243,47 @@ function createTablesDebug(): Table[] {
     ];
 }
 
+type CliOptions = {
+    debug?: boolean;
+    deals?: Deal[];
+};
+
+function parseCliArgs(args: string[]): CliOptions | null {
+    if (args.length == 0) {
+        return { debug: false };
+    }
+
+    if (args.length == 1 && args[0] == "debug") {
+        return { debug: true };
+    }
+
+    if (args.length == 2 && args[0] == "pbn") {
+        const pbnPath = args[1];
+        const pbnDeals = Deno.readTextFileSync(pbnPath);
+        const deals = parsePbnDeals(pbnDeals);
+        if (!deals) {
+            console.error(`failed to parse PBN deals from file ${pbnPath}`);
+            return null;
+        }
+        return { deals };
+    }
+
+    console.error("unsupported CLI args:", args);
+    return null;
+}
+
 function main() {
-    const args = Deno.args;
-    const debugMode = args && args.length == 1 && args[0] == "debug";
+    const opts = parseCliArgs(Deno.args);
+    if (!opts) {
+        Deno.exit(1);
+    }
+
     const tables = (() => {
-        if (debugMode) {
+        if (opts.debug) {
             return createTablesDebug();
+        }
+        if (opts.deals) {
+            return createTableBiddingWithDeals(opts.deals);
         }
         return createTablesDefault();
     })();
@@ -270,7 +310,7 @@ function main() {
             if (!token) {
                 continue;
             }
-            const tail = debugMode ? "?debug" : "";
+            const tail = opts.debug ? "?debug" : "";
             const url = `${hostname}/${access}/${token}/static/index.html${tail}`;
             console.log(`${side}: ${url}`);
         }

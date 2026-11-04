@@ -19,6 +19,7 @@ export type Tweaks = {
     filter: DealFilter;
     biddingOnly: boolean;
     nsOnly: boolean;
+    deals?: Deal[];
 };
 
 type Game = {
@@ -39,7 +40,16 @@ class ConnectionManagerImpl implements ConnectionManager {
     boardNum: number;
 
     createNewGame(): Game {
-        const deal = generateHandWithFilter(this.tweaks.filter);
+        const deal = (() => {
+            if (this.tweaks.deals) {
+                if (this.boardNum >= this.tweaks.deals.length) {
+                    throw new Error("NotImplementedError: all boards have been played");
+                }
+                return this.tweaks.deals[this.boardNum - 1];
+            }
+            return generateHandWithFilter(this.tweaks.filter);
+        })();
+
         const [dealer, vuln] = canonicalBoardParams(this.boardNum);
         const engine = createEngine(deal, dealer, vuln);
         return {

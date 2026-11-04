@@ -1,55 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { Card, Deal, Rank, Suit } from "../../shared/types.ts";
+import { Card, Deal, Rank } from "../../shared/types.ts";
+import { parsePbnHand } from "../pbn.ts";
 
 import { createEngine, EngineInput, GameEvent } from "./engine.ts";
 import { AssertionError } from "@std/assert/assertion-error";
 import { assertEquals } from "@std/assert/equals";
 
-function pbnDecodeHand(pbnHand: string): Card[] {
-    const [spades, hearts, diamonds, clubs] = pbnHand.split(".");
-    const pairs: [Suit, string][] = [
-        ["S", spades],
-        ["H", hearts],
-        ["D", diamonds],
-        ["C", clubs],
-    ];
-    const hand: Card[] = [];
-    for (const [suit, cards] of pairs) {
-        for (const c of cards) {
-            const rank: Rank = (() => {
-                switch (c) {
-                    case "A":
-                        return 14;
-                    case "K":
-                        return 13;
-                    case "Q":
-                        return 12;
-                    case "J":
-                        return 11;
-                    case "T":
-                        return 10;
-                    case "9":
-                        return 9;
-                    case "8":
-                        return 8;
-                    case "7":
-                        return 7;
-                    case "6":
-                        return 6;
-                    case "5":
-                        return 5;
-                    case "4":
-                        return 4;
-                    case "3":
-                        return 3;
-                    case "2":
-                        return 2;
-                    default:
-                        throw new Error(`${c}`);
-                }
-            })();
-            hand.push([suit, rank]);
-        }
+function parseCards(text: string): Card[] {
+    const hand = parsePbnHand(text);
+    if (!hand) {
+        throw new Error(`AssertionError: failed to parse: ${text}`);
     }
     return hand;
 }
@@ -58,10 +18,10 @@ Deno.test("run full deal from PBNv2.1 example game", () => {
     const events: GameEvent[] = [];
 
     const DEAL: Deal = {
-        N: pbnDecodeHand(".63.AKQ987.A9732"),
-        E: pbnDecodeHand("A8654.KQ5.T.QJT6"),
-        S: pbnDecodeHand("J973.J98742.3.K4"),
-        W: pbnDecodeHand("KQT2.AT.J6542.85"),
+        N: parseCards(".63.AKQ987.A9732"),
+        E: parseCards("A8654.KQ5.T.QJT6"),
+        S: parseCards("J973.J98742.3.K4"),
+        W: parseCards("KQT2.AT.J6542.85"),
     };
     const GAME: EngineInput[] = [
         // bidding
@@ -157,10 +117,10 @@ Deno.test("run full deal from PBNv2.1 example game", () => {
 
 Deno.test("passout game", () => {
     const DEAL: Deal = {
-        N: pbnDecodeHand(".63.AKQ987.A9732"),
-        E: pbnDecodeHand("A8654.KQ5.T.QJT6"),
-        S: pbnDecodeHand("J973.J98742.3.K4"),
-        W: pbnDecodeHand("KQT2.AT.J6542.85"),
+        N: parseCards(".63.AKQ987.A9732"),
+        E: parseCards("A8654.KQ5.T.QJT6"),
+        S: parseCards("J973.J98742.3.K4"),
+        W: parseCards("KQT2.AT.J6542.85"),
     };
     const INPUT: EngineInput[] = [
         { side: "N", data: { kind: "bid", bid: "PASS" } },
@@ -194,10 +154,10 @@ Deno.test("passout game", () => {
 
 Deno.test("full (but unreal) game", () => {
     const DEAL: Deal = {
-        N: pbnDecodeHand("...AKQJT98765432"),
-        E: pbnDecodeHand("..AKQJT98765432."),
-        S: pbnDecodeHand(".AKQJT98765432.."),
-        W: pbnDecodeHand("AKQJT98765432..."),
+        N: parseCards("...AKQJT98765432"),
+        E: parseCards("..AKQJT98765432."),
+        S: parseCards(".AKQJT98765432.."),
+        W: parseCards("AKQJT98765432..."),
     };
     const INPUT: EngineInput[] = [
         // bidding
