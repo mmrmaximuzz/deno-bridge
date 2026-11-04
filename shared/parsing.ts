@@ -401,7 +401,7 @@ function parseServerEngineMessage(data: unknown): ServerEngineMessage | ParsingE
             const reveal = parseFullDeal(data.reveal);
             const nsResult = parseInteger(data.nsResult);
             const lead = data.lead != null ? parseLead(data.lead) : null;
-            if (!reveal || !dealer || (data.lead != null && lead === null) || !nsResult) {
+            if (!reveal || !dealer || (data.lead != null && lead === null) || nsResult === null) {
                 return `bad 'nextdeal' message: ${JSON.stringify(data)}`;
             }
             return { kind: "nextdeal", dealer, reveal, lead, nsResult };
